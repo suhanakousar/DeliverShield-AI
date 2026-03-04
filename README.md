@@ -211,7 +211,7 @@ def evaluate_trigger(worker_location, conditions):
 ---
 
 ## 🏗️ System Architecture
-![System Workflow](System%20Architecture.png)
+![System Workflow](system-architecture.png)
 
 ### External APIs
 
