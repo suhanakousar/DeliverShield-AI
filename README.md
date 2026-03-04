@@ -211,43 +211,7 @@ def evaluate_trigger(worker_location, conditions):
 ---
 
 ## 🏗️ System Architecture
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    WORKER APP  (React PWA)                   │
-│   Register → Choose Plan → Live Coverage → Payout History   │
-└─────────────────────┬────────────────────────────────────────┘
-                      │ REST API
-┌─────────────────────▼────────────────────────────────────────┐
-│                BACKEND  (Python — FastAPI)                   │
-│       Auth | Policy Engine | Claims Engine | Payouts         │
-└──────┬──────────────┬──────────────────┬─────────────────────┘
-       │              │                  │
-┌──────▼──────┐  ┌────▼───────┐  ┌──────▼───────────┐
-│  AI RISK    │  │ DISRUPTION │  │ FRAUD DETECTION  │
-│  ENGINE     │  │  MONITOR   │  │    MODULE        │
-│  XGBoost    │  │ Weather API│  │ Isolation Forest │
-│  Regression │  │ Flood API  │  │ GPS Validation   │
-│  (premium + │  │ Traffic API│  │ Anomaly Scoring  │
-│  loss calc) │  │ (15min)    │  │ Dupe Prevention  │
-└──────┬──────┘  └────┬───────┘  └──────┬───────────┘
-       │              │                  │
-┌──────▼──────────────▼──────────────────▼──────────┐
-│                 PostgreSQL Database                │
-│    Workers | Policies | Claims | Payouts | Logs   │
-└─────────────────────┬──────────────────────────────┘
-                      │
-┌─────────────────────▼──────────────────────────────┐
-│          Payment Gateway (Razorpay Sandbox)        │
-│            Instant UPI wallet credit               │
-└─────────────────────┬──────────────────────────────┘
-                      │
-┌─────────────────────▼──────────────────────────────┐
-│             Admin Dashboard (React)                │
-│   Loss Ratios | Risk Heatmap | Fraud Alerts        │
-│   Predictive forecast: next 7-day disruptions      │
-└────────────────────────────────────────────────────┘
-```
+![System Workflow](System workflow)
 
 ### External APIs
 
