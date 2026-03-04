@@ -211,7 +211,7 @@ def evaluate_trigger(worker_location, conditions):
 ---
 
 ## 🏗️ System Architecture
-![System Workflow](System workflow)
+![System Workflow](System%20Architecture.png)
 
 ### External APIs
 
@@ -229,56 +229,10 @@ We chose a React Progressive Web App because it installs on Android without app 
 
 ---
 
-## 🔄 How It Works — End to End
 
-```
-WORKER SIGNS UP
-Worker enters name, phone, city, platform, avg orders/day, earning/order.
-System immediately calculates their income baseline and location risk score.
+## System Workflow
 
-        ↓
-
-AI RISK PROFILE
-XGBoost model scores their delivery zone risk.
-App shows: "Your zone is medium risk — we recommend Standard Shield at ₹59/week."
-
-        ↓
-
-SUBSCRIBE TO WEEKLY PLAN
-Worker selects a plan and pays via mock UPI.
-Coverage activates immediately for 7 days.
-
-        ↓
-
-CONTINUOUS MONITORING
-Every 15 minutes, the Disruption Monitor polls weather and flood APIs
-for every active worker's GPS zone.
-
-        ↓
-
-DISRUPTION DETECTED
-A threshold is crossed. Cross-validated against a second data source.
-Income loss calculated using the worker's earnings profile.
-
-        ↓
-
-FRAUD CHECK  (< 2 seconds)
-GPS location verified. Anomaly score computed. Duplicate check run.
-
-        ↓
-
-INSTANT PAYOUT
-Amount credited to worker's wallet.
-Push notification sent: amount, reason, and confirmation.
-
-        ↓
-
-WORKER DASHBOARD
-Earnings protected this week, active coverage status,
-payout history, tomorrow's risk forecast.
-```
-
----
+![System Workflow](system-workflow.png)
 
 ## 🛡️ Fraud Detection
 
