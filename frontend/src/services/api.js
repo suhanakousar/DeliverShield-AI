@@ -264,6 +264,14 @@ export const getWalletTransactions = async (workerId, limit = 50) => {
   return response.data;
 };
 
+export const withdrawToUPI = async (workerId, upiId, amount) => {
+  const response = await api.post(`/api/wallet/${workerId}/withdraw`, {
+    upi_id: upiId,
+    amount,
+  });
+  return response.data;
+};
+
 // ── SSE real-time events ────────────────────────
 const SSE_EVENT_TYPES = [
   'weather_update',

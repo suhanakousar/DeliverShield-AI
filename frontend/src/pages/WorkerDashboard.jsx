@@ -190,7 +190,14 @@ export default function WorkerDashboard() {
           <ShiftControl workerId={workerId} onShiftChange={setActivity} />
         </div>
         <div>
-          <WalletCard balance={wallet.balance ?? worker.wallet_balance} totalPayouts={earnings.total_payouts} />
+          <WalletCard
+            workerId={workerId}
+            balance={wallet.balance ?? worker.wallet_balance}
+            totalPayouts={earnings.total_payouts}
+            onWithdrawSuccess={(newBalance) => {
+              setWallet(prev => ({ ...prev, balance: newBalance }));
+            }}
+          />
         </div>
       </div>
 
