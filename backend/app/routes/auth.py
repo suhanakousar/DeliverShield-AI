@@ -1,35 +1,30 @@
 """
 DeliverShield AI - Authentication Routes
-JWT-based auth with mock OTP verification.
+JWT-based auth with worker/admin roles and MSG91 OTP support.
 """
 
-import random
-import string
-from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from jose import jwt, JWTError
 from passlib.context import CryptContext
 
+from app.auth import (
+    ADMIN_PASSWORD,
+    ADMIN_USERNAME,
+    create_access_token,
+    decode_token,
+)
 from app.database import get_db
 from app.models.worker import Worker
+from app.services.otp_service import otp_service
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-# Config
-SECRET_KEY = "delivershield_ai_secret_key_2024_hyderabad"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_DAYS = 30
-
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# In-memory OTP store: { phone: { otp, expires, name } }
-OTP_STORE: dict = {}
-
 
 # ───────────────────────── Schemas ─────────────────────────
 
@@ -63,27 +58,30 @@ class TokenResponse(BaseModel):
     worker_id: str
     name: str
     phone: str
+    role: str = "worker"
+
+
+class AdminLoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AdminTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str = "admin"
+    username: str
 
 
 # ───────────────────────── Helpers ─────────────────────────
 
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
 
 def get_current_worker_id(token: str) -> Optional[str]:
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = decode_token(token)
         return payload.get("worker_id")
-    except JWTError:
+    except HTTPException:
         return None
-
-
-def generate_otp() -> str:
-    return "".join(random.choices(string.digits, k=6))
 
 
 # ───────────────────────── Routes ─────────────────────────
@@ -92,22 +90,13 @@ def generate_otp() -> str:
 async def send_otp(request: SendOTPRequest):
     """
     Send OTP to phone number.
-    For demo: OTP is always shown in the response (in production, send via SMS).
+
+    Uses MSG91 when configured; otherwise falls back to demo OTP mode.
     """
-    otp = generate_otp()
-    OTP_STORE[request.phone] = {
-        "otp": otp,
-        "expires": datetime.now(timezone.utc) + timedelta(minutes=10),
-        "name": request.name,
-    }
-    # In production: send SMS via Twilio/MSG91
-    # For demo: return OTP in response
-    return {
-        "success": True,
-        "message": f"OTP sent to {request.phone[-4:].rjust(len(request.phone), '*')}",
-        "demo_otp": otp,  # Remove in production
-        "expires_in": 600,
-    }
+    try:
+        return await otp_service.send_otp(request.phone)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail="Failed to send OTP via MSG91") from exc
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -116,27 +105,20 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
     Complete registration after OTP verification.
     Creates worker account and issues JWT token.
     """
-    # Verify OTP
-    stored = OTP_STORE.get(request.phone)
-    if not stored:
-        raise HTTPException(status_code=400, detail="OTP not found. Please request a new one.")
-    if stored["otp"] != request.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP. Please try again.")
-    if datetime.now(timezone.utc) > stored["expires"]:
-        del OTP_STORE[request.phone]
-        raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
+    if not await otp_service.verify_otp(request.phone, request.otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP. Please try again.")
 
     # Check if already registered
     existing = db.query(Worker).filter(Worker.phone == request.phone).first()
     if existing:
         # Already registered - just log them in
-        del OTP_STORE[request.phone]
-        token = create_access_token({"worker_id": existing.id, "phone": existing.phone})
+        token = create_access_token({"worker_id": existing.id, "phone": existing.phone, "role": "worker"})
         return TokenResponse(
             access_token=token,
             worker_id=existing.id,
             name=existing.name,
             phone=existing.phone,
+            role="worker",
         )
 
     # Create new worker
@@ -146,7 +128,7 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
 
     worker = Worker(
         id=str(uuid4()),
-        name=request.name or stored.get("name", "Partner"),
+        name=request.name or "Partner",
         phone=request.phone,
         email=request.email,
         platform=platform_normalized,
@@ -164,28 +146,21 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
     db.commit()
     db.refresh(worker)
 
-    del OTP_STORE[request.phone]
-
-    token = create_access_token({"worker_id": worker.id, "phone": worker.phone})
+    token = create_access_token({"worker_id": worker.id, "phone": worker.phone, "role": "worker"})
     return TokenResponse(
         access_token=token,
         worker_id=worker.id,
         name=worker.name,
         phone=worker.phone,
+        role="worker",
     )
 
 
 @router.post("/login", response_model=TokenResponse)
 async def login_with_otp(request: LoginRequest, db: Session = Depends(get_db)):
     """Login with phone + OTP."""
-    stored = OTP_STORE.get(request.phone)
-    if not stored:
-        raise HTTPException(status_code=400, detail="OTP not found. Please request a new OTP first.")
-    if stored["otp"] != request.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP. Please try again.")
-    if datetime.now(timezone.utc) > stored["expires"]:
-        del OTP_STORE[request.phone]
-        raise HTTPException(status_code=400, detail="OTP expired. Please request a new one.")
+    if not await otp_service.verify_otp(request.phone, request.otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP. Please try again.")
 
     worker = db.query(Worker).filter(Worker.phone == request.phone).first()
     if not worker:
@@ -194,21 +169,38 @@ async def login_with_otp(request: LoginRequest, db: Session = Depends(get_db)):
             detail="No account found for this phone. Please register first.",
         )
 
-    del OTP_STORE[request.phone]
-
-    token = create_access_token({"worker_id": worker.id, "phone": worker.phone})
+    token = create_access_token({"worker_id": worker.id, "phone": worker.phone, "role": "worker"})
     return TokenResponse(
         access_token=token,
         worker_id=worker.id,
         name=worker.name,
         phone=worker.phone,
+        role="worker",
     )
+
+
+@router.post("/admin-login", response_model=AdminTokenResponse)
+async def admin_login(request: AdminLoginRequest):
+    """Authenticate an admin operator."""
+    if request.username != ADMIN_USERNAME or request.password != ADMIN_PASSWORD:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials")
+
+    token = create_access_token({"role": "admin", "username": request.username})
+    return AdminTokenResponse(access_token=token, username=request.username)
 
 
 @router.get("/me")
 async def get_me(token: str, db: Session = Depends(get_db)):
     """Get current authenticated worker."""
-    worker_id = get_current_worker_id(token)
+    payload = decode_token(token)
+
+    if payload.get("role") == "admin":
+        return {
+            "role": "admin",
+            "username": payload.get("username", ADMIN_USERNAME),
+        }
+
+    worker_id = payload.get("worker_id")
     if not worker_id:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
@@ -217,6 +209,7 @@ async def get_me(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Worker not found")
 
     return {
+        "role": "worker",
         "worker_id": worker.id,
         "name": worker.name,
         "phone": worker.phone,

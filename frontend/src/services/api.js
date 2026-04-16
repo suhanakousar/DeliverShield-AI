@@ -48,6 +48,11 @@ export const loginWithOtp = async (phone, otp) => {
   return response.data;
 };
 
+export const adminLogin = async (username, password) => {
+  const response = await api.post('/api/auth/admin-login', { username, password });
+  return response.data;
+};
+
 export const getAuthMe = async (token) => {
   const response = await api.get(`/api/auth/me?token=${token}`);
   return response.data;
@@ -140,6 +145,16 @@ export const getAdminAnalytics = async () => {
 
 export const simulateDisruption = async (data) => {
   const response = await api.post('/api/admin/simulate-disruption', data);
+  return response.data;
+};
+
+export const reviewAdminClaim = async (claimId, action) => {
+  const response = await api.post(`/api/admin/claims/${claimId}/decision?action=${action}`);
+  return response.data;
+};
+
+export const processManualAdminPayout = async (claimId) => {
+  const response = await api.post(`/api/admin/claims/${claimId}/manual-payout`);
   return response.data;
 };
 

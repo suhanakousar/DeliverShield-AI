@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.auth import require_admin
 from app.database import get_db
 from app.models.worker import Worker
 from app.models.policy import Policy
@@ -26,7 +27,10 @@ router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 @router.get("/dashboard")
-async def admin_dashboard(db: Session = Depends(get_db)):
+async def admin_dashboard(
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """
     Admin dashboard with key metrics:
     - Total workers, active policies, total claims, total payouts
@@ -83,6 +87,7 @@ async def list_all_claims(
     zone: Optional[str] = Query(None, description="Filter by zone"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    _: dict = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """List all claims with optional filters."""
@@ -125,6 +130,7 @@ async def list_all_claims(
 @router.get("/events")
 async def list_all_events(
     status: Optional[str] = Query(None),
+    _: dict = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """List all disruption events."""
@@ -154,7 +160,10 @@ async def list_all_events(
 
 
 @router.get("/analytics")
-async def get_analytics(db: Session = Depends(get_db)):
+async def get_analytics(
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """Detailed analytics: claims by type, payouts by zone, fraud metrics."""
 
     # Claims by disruption type
@@ -250,6 +259,7 @@ async def get_analytics(db: Session = Depends(get_db)):
 @router.post("/simulate-disruption")
 async def simulate_disruption(
     sim_data: DisruptionSimulate,
+    _: dict = Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -326,7 +336,10 @@ async def simulate_disruption(
 
 
 @router.get("/forecast")
-async def get_disruption_forecast(db: Session = Depends(get_db)):
+async def get_disruption_forecast(
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
     """7-day predictive disruption forecast using risk engine."""
     from app.services.risk_engine import risk_engine
     from app.services.weather_service import weather_service
@@ -354,4 +367,72 @@ async def get_disruption_forecast(db: Session = Depends(get_db)):
         "average_risk_score": round(avg_risk, 1),
         "zones": forecast_data,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/claims/{claim_id}/decision")
+async def review_claim(
+    claim_id: str,
+    action: str = Query(..., pattern="^(approve|flag|reject)$"),
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Manual claim review action for admin operators."""
+    claim = db.query(Claim).filter(Claim.id == claim_id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    status_map = {
+        "approve": "approved",
+        "flag": "flagged",
+        "reject": "rejected",
+    }
+    claim.status = status_map[action]
+    db.commit()
+    db.refresh(claim)
+
+    return {
+        "claim_id": claim.id,
+        "status": claim.status,
+        "message": f"Claim marked as {claim.status}",
+    }
+
+
+@router.post("/claims/{claim_id}/manual-payout")
+async def manual_payout(
+    claim_id: str,
+    _: dict = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Allow admins to manually trigger payout for an approved/flagged claim."""
+    claim = db.query(Claim).filter(Claim.id == claim_id).first()
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+
+    if claim.status == "paid":
+        raise HTTPException(status_code=400, detail="Claim already paid")
+
+    if claim.status == "rejected":
+        raise HTTPException(status_code=400, detail="Rejected claims cannot be paid")
+
+    if claim.status == "flagged":
+        claim.status = "approved"
+        db.commit()
+        db.refresh(claim)
+
+    worker = db.query(Worker).filter(Worker.id == claim.worker_id).first()
+    if not worker:
+        raise HTTPException(status_code=404, detail="Worker not found")
+
+    existing = db.query(Payout).filter(Payout.claim_id == claim_id).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Payout already exists for this claim")
+
+    result = payout_service.process_payout(claim, worker, db)
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error", "Manual payout failed"))
+
+    return {
+        **result,
+        "message": "Manual payout processed successfully",
     }

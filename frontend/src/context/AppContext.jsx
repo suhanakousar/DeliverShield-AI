@@ -16,11 +16,16 @@ export const AppProvider = ({ children }) => {
     return localStorage.getItem('delivershield_token') || null;
   });
 
-  const [isAdmin, setIsAdmin] = useState(() => {
+  const [role, setRoleState] = useState(() => {
+    return localStorage.getItem('delivershield_role') || 'guest';
+  });
+
+  const [adminUser, setAdminUserState] = useState(() => {
     try {
-      return localStorage.getItem('delivershield_admin') === 'true';
+      const stored = localStorage.getItem('delivershield_admin_user');
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return false;
+      return null;
     }
   });
 
@@ -44,8 +49,35 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const setRole = (nextRole) => {
+    setRoleState(nextRole);
+    if (nextRole) {
+      localStorage.setItem('delivershield_role', nextRole);
+    } else {
+      localStorage.removeItem('delivershield_role');
+    }
+  };
+
+  const setAdminUser = (user) => {
+    setAdminUserState(user);
+    if (user) {
+      localStorage.setItem('delivershield_admin_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('delivershield_admin_user');
+    }
+  };
+
   const login = (authResult) => {
     setAuthToken(authResult.access_token);
+    if (authResult.role === 'admin') {
+      setRole('admin');
+      setAdminUser({ username: authResult.username || 'admin' });
+      setCurrentWorker(null);
+      return;
+    }
+
+    setRole('worker');
+    setAdminUser(null);
     setCurrentWorker({
       id: authResult.worker_id,
       worker_id: authResult.worker_id,
@@ -54,17 +86,11 @@ export const AppProvider = ({ children }) => {
     });
   };
 
-  const toggleAdmin = () => {
-    const newVal = !isAdmin;
-    setIsAdmin(newVal);
-    localStorage.setItem('delivershield_admin', String(newVal));
-  };
-
   const logout = () => {
     setCurrentWorker(null);
     setAuthToken(null);
-    setIsAdmin(false);
-    localStorage.removeItem('delivershield_admin');
+    setAdminUser(null);
+    setRole('guest');
   };
 
   const showPayoutPopup = (amount, disruptionType) => {
@@ -75,7 +101,9 @@ export const AppProvider = ({ children }) => {
     setPayoutPopup(null);
   };
 
-  const isAuthenticated = !!(currentWorker && (authToken || currentWorker.worker_id || currentWorker.id));
+  const isAuthenticated = !!authToken;
+  const isAdmin = role === 'admin';
+  const isWorker = role === 'worker';
 
   return (
     <AppContext.Provider
@@ -84,9 +112,12 @@ export const AppProvider = ({ children }) => {
         setCurrentWorker,
         authToken,
         setAuthToken,
+        role,
+        setRole,
         isAdmin,
-        setIsAdmin,
-        toggleAdmin,
+        isWorker,
+        adminUser,
+        setAdminUser,
         logout,
         login,
         isAuthenticated,

@@ -36,7 +36,7 @@ const RegisterPage = () => {
       const result = await sendOtp(formData.phone.trim(), formData.name);
       setDemoOtp(result.demo_otp);
       setStep(1);
-      toast.success('OTP sent!');
+      toast.success(result.provider === 'msg91' ? 'OTP sent to your phone' : 'OTP sent!');
     } catch (err) {
       toast.error('Failed to send OTP');
     } finally {
@@ -129,6 +129,7 @@ const RegisterPage = () => {
               <div className="text-center mb-6">
                 <p className="text-sm font-bold text-base-500 mb-2">OTP sent to +91 {formData.phone}</p>
                 {demoOtp && <p className="text-xs font-mono text-primary-400">Demo OTP: {demoOtp}</p>}
+                {!demoOtp && <p className="text-xs text-base-500">Check your SMS inbox for the OTP.</p>}
               </div>
 
               <div>

@@ -101,8 +101,8 @@ const LandingPage = () => {
                 Start Protecting — ₹39/wk
               </Link>
             )}
-            <Link to="/admin" className="btn-secondary w-full sm:w-auto text-lg px-8">
-              Admin Overview
+            <Link to="/login" className="btn-secondary w-full sm:w-auto text-lg px-8">
+              Sign In
             </Link>
           </motion.div>
         </motion.div>

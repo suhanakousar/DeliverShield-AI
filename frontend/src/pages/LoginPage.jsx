@@ -4,15 +4,18 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { HiOutlineShieldCheck, HiArrowRight } from 'react-icons/hi';
 import { useApp } from '../context/AppContext';
-import { sendOtp, loginWithOtp } from '../services/api';
+import { adminLogin, sendOtp, loginWithOtp } from '../services/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useApp();
+  const [mode, setMode] = useState('worker');
   const [step, setStep] = useState('phone'); 
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [demoOtp, setDemoOtp] = useState('');
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSendOtp = async (e) => {
@@ -26,7 +29,7 @@ const LoginPage = () => {
       const result = await sendOtp(phone.trim());
       setDemoOtp(result.demo_otp);
       setStep('otp');
-      toast.success('OTP sent successfully');
+      toast.success(result.provider === 'msg91' ? 'OTP sent to your phone' : 'OTP sent successfully');
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to send OTP');
     } finally {
@@ -53,6 +56,21 @@ const LoginPage = () => {
     }
   };
 
+  const handleAdminLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const result = await adminLogin(adminUsername.trim(), adminPassword);
+      login(result);
+      toast.success('Admin access granted');
+      navigate('/admin');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Invalid admin credentials');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
       <motion.div 
@@ -69,7 +87,32 @@ const LoginPage = () => {
         </div>
 
         <div className="card bg-base-900 border-base-800 p-8 shadow-2xl">
-          {step === 'phone' ? (
+          <div className="flex gap-2 mb-6 bg-base-950 p-1 rounded-xl border border-base-800">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('worker');
+                setStep('phone');
+              }}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                mode === 'worker' ? 'bg-primary-500 text-base-950' : 'text-base-400'
+              }`}
+            >
+              Worker Login
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('admin')}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
+                mode === 'admin' ? 'bg-primary-500 text-base-950' : 'text-base-400'
+              }`}
+            >
+              Admin Login
+            </button>
+          </div>
+
+          {mode === 'worker' ? (
+            step === 'phone' ? (
             <form onSubmit={handleSendOtp} className="space-y-6">
               <div>
                 <label className="label">Phone Number</label>
@@ -91,13 +134,16 @@ const LoginPage = () => {
                 {loading ? 'Sending...' : 'Continue'} <HiArrowRight className="w-5 h-5" />
               </button>
             </form>
-          ) : (
+            ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               <div className="bg-base-950 rounded-xl p-4 border border-base-800 text-center">
                 <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Code sent to</p>
                 <p className="font-bold text-base-100">+91 {phone}</p>
                 {demoOtp && (
                   <p className="text-xs text-primary-400 mt-2 font-mono">Demo OTP: {demoOtp}</p>
+                )}
+                {!demoOtp && (
+                  <p className="text-xs text-base-500 mt-2">Check your SMS inbox for the OTP.</p>
                 )}
               </div>
 
@@ -122,12 +168,45 @@ const LoginPage = () => {
                 Change phone number
               </button>
             </form>
+            )
+          ) : (
+            <form onSubmit={handleAdminLogin} className="space-y-6">
+              <div>
+                <label className="label">Admin Username</label>
+                <input
+                  type="text"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  placeholder="admin"
+                  className="input-field"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="label">Password</label>
+                <input
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Enter admin password"
+                  className="input-field"
+                />
+              </div>
+              <button type="submit" disabled={loading} className="btn-primary w-full">
+                {loading ? 'Signing in...' : 'Access Admin Panel'}
+              </button>
+              <p className="text-xs text-base-500">
+                This panel is restricted to authorized operations staff only.
+              </p>
+            </form>
           )}
         </div>
 
-        <p className="text-center mt-8 text-base-500 text-sm">
-          Don't have an account? <Link to="/register" className="text-primary-500 font-bold hover:underline">Register here</Link>
-        </p>
+        {mode === 'worker' && (
+          <p className="text-center mt-8 text-base-500 text-sm">
+            Don't have an account? <Link to="/register" className="text-primary-500 font-bold hover:underline">Register here</Link>
+          </p>
+        )}
       </motion.div>
     </div>
   );

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { HiOutlineFilter, HiOutlineCheck, HiOutlineX, HiOutlineFlag } from 'react-icons/hi';
-import { getAdminClaims } from '../services/api';
+import { HiOutlineFilter, HiOutlineCheck, HiOutlineX, HiOutlineFlag, HiOutlineCash } from 'react-icons/hi';
+import { getAdminClaims, processManualAdminPayout, reviewAdminClaim } from '../services/api';
 import LoadingSpinner from '../components/LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -17,6 +17,7 @@ const AdminClaimsPage = () => {
   const [claims, setClaims] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [processingId, setProcessingId] = useState(null);
 
   const fetchClaims = useCallback(async () => {
     try {
@@ -32,11 +33,34 @@ const AdminClaimsPage = () => {
 
   useEffect(() => { fetchClaims(); }, [fetchClaims]);
 
-  const handleAction = (id, action) => {
-    setClaims(prev => prev.map(c => 
-      c.id === id ? { ...c, status: action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'flagged' } : c
-    ));
-    toast.success(`Claim ${action}d successfully`);
+  const handleAction = async (id, action) => {
+    setProcessingId(`${id}:${action}`);
+    try {
+      const result = await reviewAdminClaim(id, action);
+      setClaims(prev => prev.map(c =>
+        c.id === id ? { ...c, status: result.status } : c
+      ));
+      toast.success(result.message);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Failed to update claim');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleManualPayout = async (id) => {
+    setProcessingId(`${id}:payout`);
+    try {
+      const result = await processManualAdminPayout(id);
+      setClaims(prev => prev.map(c =>
+        c.id === id ? { ...c, status: 'paid' } : c
+      ));
+      toast.success(result.message || 'Manual payout completed');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Manual payout failed');
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   const filtered = claims.filter(c => filter === 'all' || (c.status || '').toLowerCase() === filter);
@@ -125,16 +149,25 @@ const AdminClaimsPage = () => {
                     <td className="p-4 text-right">
                       {(status === 'pending' || status === 'flagged') ? (
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleAction(claim.id, 'approve')} className="w-8 h-8 rounded-lg bg-success-500/10 hover:bg-success-500/20 text-success-500 flex items-center justify-center transition-colors">
+                          <button disabled={!!processingId} onClick={() => handleAction(claim.id, 'approve')} className="w-8 h-8 rounded-lg bg-success-500/10 hover:bg-success-500/20 text-success-500 flex items-center justify-center transition-colors disabled:opacity-50">
                             <HiOutlineCheck className="w-4 h-4" />
                           </button>
                           {status === 'pending' && (
-                            <button onClick={() => handleAction(claim.id, 'flag')} className="w-8 h-8 rounded-lg bg-warning-500/10 hover:bg-warning-500/20 text-warning-500 flex items-center justify-center transition-colors">
+                            <button disabled={!!processingId} onClick={() => handleAction(claim.id, 'flag')} className="w-8 h-8 rounded-lg bg-warning-500/10 hover:bg-warning-500/20 text-warning-500 flex items-center justify-center transition-colors disabled:opacity-50">
                               <HiOutlineFlag className="w-4 h-4" />
                             </button>
                           )}
-                          <button onClick={() => handleAction(claim.id, 'reject')} className="w-8 h-8 rounded-lg bg-danger-500/10 hover:bg-danger-500/20 text-danger-500 flex items-center justify-center transition-colors">
+                          <button disabled={!!processingId} onClick={() => handleAction(claim.id, 'reject')} className="w-8 h-8 rounded-lg bg-danger-500/10 hover:bg-danger-500/20 text-danger-500 flex items-center justify-center transition-colors disabled:opacity-50">
                             <HiOutlineX className="w-4 h-4" />
+                          </button>
+                          <button disabled={!!processingId} onClick={() => handleManualPayout(claim.id)} className="w-8 h-8 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-400 flex items-center justify-center transition-colors disabled:opacity-50">
+                            <HiOutlineCash className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : status === 'approved' ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button disabled={!!processingId} onClick={() => handleManualPayout(claim.id)} className="w-8 h-8 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 text-primary-400 flex items-center justify-center transition-colors disabled:opacity-50">
+                            <HiOutlineCash className="w-4 h-4" />
                           </button>
                         </div>
                       ) : (

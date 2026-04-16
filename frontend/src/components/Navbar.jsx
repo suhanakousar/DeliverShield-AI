@@ -42,12 +42,12 @@ const Logo = ({ onClick }) => (
 
 const Sidebar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { currentWorker, logout, isAuthenticated } = useApp();
+  const { currentWorker, logout, isAuthenticated, isAdmin } = useApp();
   const location = useLocation();
 
   const workerId = currentWorker?.worker_id || currentWorker?.id;
   const walletBalance = currentWorker?.wallet_balance ?? null;
-  const isAdmin = location.pathname.startsWith('/admin');
+  const isAdminArea = location.pathname.startsWith('/admin');
 
   const isActive = (path) =>
     path === '/admin'
@@ -56,19 +56,19 @@ const Sidebar = () => {
 
   const closeMobile = () => setMobileOpen(false);
 
-  const workerLinks = workerId && isAuthenticated && !isAdmin ? [
+  const workerLinks = workerId && isAuthenticated && !isAdminArea ? [
     { to: `/dashboard/${workerId}`, icon: HiHome, label: 'Dashboard' },
     { to: `/policies/${workerId}`, icon: HiShieldCheck, label: 'Policies' },
     { to: `/claims/${workerId}`, icon: HiCash, label: 'Claims' },
   ] : [];
 
-  const adminLinks = isAdmin ? [
+  const adminLinks = isAdminArea ? [
     { to: '/admin', icon: HiChartBar, label: 'Overview' },
     { to: '/admin/claims', icon: HiClipboardList, label: 'Manage Claims' },
     { to: '/admin/simulate', icon: HiBeaker, label: 'Simulate Event' },
   ] : [];
 
-  const links = isAdmin ? adminLinks : workerLinks;
+  const links = isAdminArea ? adminLinks : workerLinks;
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -78,7 +78,7 @@ const Sidebar = () => {
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         <p className="text-[11px] font-bold text-base-600 uppercase tracking-widest px-4 mb-3">
-          {isAdmin ? 'Admin' : 'Menu'}
+          {isAdminArea ? 'Admin' : 'Menu'}
         </p>
         {links.map((link) => (
           <NavItem
@@ -91,16 +91,11 @@ const Sidebar = () => {
           />
         ))}
 
-        {!isAdmin && isAuthenticated && (
+        {isAdminArea && (
           <div className="pt-4 mt-4 border-t border-base-800">
-            <p className="text-[11px] font-bold text-base-600 uppercase tracking-widest px-4 mb-3">System</p>
-            <NavItem to="/admin" icon={HiCog} label="Admin Panel" active={false} onClick={closeMobile} />
-          </div>
-        )}
-
-        {isAdmin && (
-          <div className="pt-4 mt-4 border-t border-base-800">
-            <NavItem to="/" icon={HiHome} label="Back to App" active={false} onClick={closeMobile} />
+            {isAdmin ? (
+              <NavItem to="/" icon={HiHome} label="Back to App" active={false} onClick={closeMobile} />
+            ) : null}
           </div>
         )}
       </nav>

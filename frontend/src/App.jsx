@@ -16,6 +16,24 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminClaimsPage from './pages/AdminClaimsPage';
 import SimulateDisruptionPage from './pages/SimulateDisruptionPage';
 
+const WorkerRoute = ({ children }) => {
+  const { isAuthenticated, isWorker } = useApp();
+
+  if (!isAuthenticated || !isWorker) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
+const AdminRoute = ({ children }) => {
+  const { isAuthenticated, isAdmin } = useApp();
+
+  if (!isAuthenticated || !isAdmin) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+};
+
 const PageWrapper = ({ children }) => {
   return (
     <motion.div
@@ -31,7 +49,7 @@ const PageWrapper = ({ children }) => {
 };
 
 const AppInner = () => {
-  const { payoutPopup, hidePayoutPopup, isAuthenticated } = useApp();
+  const { payoutPopup, hidePayoutPopup } = useApp();
   const location = useLocation();
 
   // Layout check
@@ -58,13 +76,13 @@ const AppInner = () => {
               <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
               <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
               
-              <Route path="/dashboard/:workerId" element={<PageWrapper><WorkerDashboard /></PageWrapper>} />
-              <Route path="/policies/:workerId" element={<PageWrapper><PoliciesPage /></PageWrapper>} />
-              <Route path="/claims/:workerId" element={<PageWrapper><ClaimsPage /></PageWrapper>} />
+              <Route path="/dashboard/:workerId" element={<WorkerRoute><PageWrapper><WorkerDashboard /></PageWrapper></WorkerRoute>} />
+              <Route path="/policies/:workerId" element={<WorkerRoute><PageWrapper><PoliciesPage /></PageWrapper></WorkerRoute>} />
+              <Route path="/claims/:workerId" element={<WorkerRoute><PageWrapper><ClaimsPage /></PageWrapper></WorkerRoute>} />
               
-              <Route path="/admin" element={<PageWrapper><AdminDashboard /></PageWrapper>} />
-              <Route path="/admin/claims" element={<PageWrapper><AdminClaimsPage /></PageWrapper>} />
-              <Route path="/admin/simulate" element={<PageWrapper><SimulateDisruptionPage /></PageWrapper>} />
+              <Route path="/admin" element={<AdminRoute><PageWrapper><AdminDashboard /></PageWrapper></AdminRoute>} />
+              <Route path="/admin/claims" element={<AdminRoute><PageWrapper><AdminClaimsPage /></PageWrapper></AdminRoute>} />
+              <Route path="/admin/simulate" element={<AdminRoute><PageWrapper><SimulateDisruptionPage /></PageWrapper></AdminRoute>} />
               
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
