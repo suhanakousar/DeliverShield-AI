@@ -77,7 +77,7 @@ export default function WorkerDashboard() {
         setDashboard(dash.value);
         if (dash.value?.worker) setCurrentWorker((prev) => ({ ...prev, ...dash.value.worker }));
       }
-      if (w.status === 'fulfilled') setWeather(w.value);
+      if (w.status === 'fulfilled') setWeather(w.value?.weather || w.value);
       if (c.status === 'fulfilled') setClaims(Array.isArray(c.value) ? c.value : (c.value?.claims || []));
       if (p.status === 'fulfilled') setPolicy(p.value);
       if (wa.status === 'fulfilled') setWallet(wa.value);
@@ -96,7 +96,7 @@ export default function WorkerDashboard() {
   useEffect(() => {
     if (!workerZone) return;
     const id = setInterval(() => {
-      getWeather(workerZone).then(setWeather).catch(() => {});
+      getWeather(workerZone).then(d => setWeather(d?.weather || d)).catch(() => {});
     }, 5000);
     return () => clearInterval(id);
   }, [workerZone]);

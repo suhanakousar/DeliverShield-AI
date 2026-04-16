@@ -38,7 +38,7 @@ const WeatherCard = ({ weather, zone, className = '' }) => {
   const WeatherIcon = getWeatherIcon(weather.condition || weather.weather_condition);
   const temp = weather.temperature ?? weather.temp ?? '--';
   const humidity = weather.humidity ?? '--';
-  const rainfall = weather.rainfall ?? weather.rainfall_mm ?? 0;
+  const rainfall = weather.rainfall_mm_hr ?? weather.rainfall ?? weather.rainfall_mm ?? 0;
   const riskLevel = weather.risk_level || weather.risk || 'low';
   const condition = weather.condition || weather.weather_condition || 'Unknown';
   const updatedAt = weather.timestamp || weather.updated_at;

@@ -1,0 +1,196 @@
+DeliverShield
+Menu
+
+Dashboard
+Policies
+Claims
+Wallet
+
+₹0
+
+Sign Out
+Live
+kukatpally
+31°
+banjara hills
+31°
+old city
+31°
+gachibowli
+31°
+lb nagar
+31°
+madhapur
+31°
+kukatpally
+31°
+banjara hills
+31°
+old city
+31°
+gachibowli
+31°
+lb nagar
+31°
+madhapur
+31°
+Welcome, suhana kousar
+🟢 Live monitoring active — your earnings are protected.
+
+Activate Coverage
+Your income is not protected
+Subscribe to a plan to receive payouts during weather disruptions.
+
+On Shift
+Delivering
+You are protected
+Live tracking is on. Auto-payouts trigger only when you are on shift, delivering, and in a disrupted zone.
+
+End Shift
+Distance
+1.6 km
+Deliveries
+0
+Zone
+—
+GPS
+Live
+Complete Delivery
+16.44129, 80.62570 · 82 m accuracy
+Wallet Balance
+₹0
+
+Available for instant withdrawal
+
+Total Protected
+
+₹0
+
+Payout Method
+
+Direct UPI
+
+Current Weather
+
+gachibowli
+
+Low Risk
+--°
+
+Unknown
+
+Humidity
+
+--%
+
+Rainfall
+
+0 mm/hr
+
+Zone Risk Score
+35
+/ 100
+Calculated disruption risk for gachibowli
+
+Disruption Probability
+22%
+Trust Score
+Impacts Pricing
+70
+Standard Partner
+Live Map
+Low
+Med
+High
+Extreme
++
+−
+ Leaflet | © OpenStreetMap
+Live Feed
+20 events
+weather_update
+
+dilsukhnagar
+09:49:45 pm
+weather_update
+
+ameerpet
+09:49:45 pm
+weather_update
+
+madhapur
+09:49:44 pm
+weather_update
+
+secunderabad
+09:49:44 pm
+weather_update
+
+gachibowli
+09:49:43 pm
+weather_update
+
+old city
+09:49:43 pm
+weather_update
+
+jubilee hills
+09:49:42 pm
+weather_update
+
+lb nagar
+09:49:42 pm
+weather_update
+
+banjara hills
+09:49:42 pm
+weather_update
+
+kukatpally
+09:49:41 pm
+Checking all zones for disruption triggers...
+
+09:49:41 pm
+weather_update
+
+dilsukhnagar
+09:49:11 pm
+weather_update
+
+ameerpet
+09:49:10 pm
+weather_update
+
+madhapur
+09:49:10 pm
+weather_update
+
+secunderabad
+09:49:09 pm
+weather_update
+
+gachibowli
+09:49:09 pm
+weather_update
+
+old city
+09:49:08 pm
+weather_update
+
+jubilee hills
+09:49:08 pm
+weather_update
+
+lb nagar
+09:49:07 pm
+weather_update
+
+banjara hills
+09:49:07 pm
+Recent Claims
+View All
+No claims yet
+We're monitoring your zone. If a disruption hits while you're delivering, your claim will appear here automatically.
+
+Made with Replit
+
