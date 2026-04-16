@@ -24,12 +24,7 @@ class Settings:
     RAZORPAY_KEY_SECRET: str = os.getenv("RAZORPAY_KEY_SECRET", "mock_secret_key_for_demo")
 
     # CORS
-    CORS_ORIGINS: list = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-    ]
+    CORS_ORIGINS: list = ["*"]
 
     # Parametric Trigger Thresholds
     RAIN_THRESHOLD_MM_HR: float = 15.0

@@ -2,6 +2,7 @@
   "name": "delivershield-ai",
   "version": "1.0.0",
   "private": true,
+  "proxy": "http://localhost:8000",
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -19,7 +20,7 @@
     "autoprefixer": "^10.4.0"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
     "build": "react-scripts build"
   },
   "browserslist": {

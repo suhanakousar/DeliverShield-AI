@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.REACT_APP_API_URL !== undefined ? process.env.REACT_APP_API_URL : '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -152,7 +152,7 @@ export const stopMonitor = async () => {
 
 // SSE connection for real-time events
 export const connectToRealtimeEvents = (onEvent, onError) => {
-  const eventSource = new EventSource(`${API_BASE_URL}/api/realtime/events`);
+  const eventSource = new EventSource(`${API_BASE_URL || ''}/api/realtime/events`);
 
   eventSource.onmessage = (event) => {
     try {
