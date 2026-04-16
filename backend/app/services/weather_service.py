@@ -238,6 +238,59 @@ class WeatherService:
             "source": "open-meteo",
         }
 
+    async def get_weather_by_coords(self, lat: float, lon: float) -> dict:
+        """Fetch real weather from Open-Meteo for exact lat/lon coordinates."""
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": lat,
+                    "longitude": lon,
+                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,rain,wind_speed_10m,wind_direction_10m,weather_code,cloud_cover",
+                    "hourly": "precipitation,visibility",
+                    "timezone": "auto",
+                    "forecast_days": 1,
+                },
+            )
+        if response.status_code != 200:
+            raise RuntimeError(f"Open-Meteo returned {response.status_code}")
+
+        data = response.json()
+        c = data.get("current", {})
+        hourly = data.get("hourly", {})
+
+        rain_1h = c.get("rain", 0.0) or 0.0
+        hourly_precip = hourly.get("precipitation", [])
+        rain_day = sum(hourly_precip) if hourly_precip else rain_1h * 6
+
+        vis_list = hourly.get("visibility", [])
+        visibility_m = vis_list[0] if vis_list else 10000
+        visibility_km = round(visibility_m / 1000, 1)
+
+        wmo_code = c.get("weather_code", 0)
+        condition = self._wmo_to_condition(wmo_code)
+
+        temp = c.get("temperature_2m", 30.0)
+        return {
+            "lat": lat,
+            "lon": lon,
+            "temperature": round(temp, 1),
+            "feels_like": round(c.get("apparent_temperature", temp), 1),
+            "humidity": c.get("relative_humidity_2m", 50),
+            "rainfall_mm_hr": round(rain_1h, 2),
+            "rainfall_mm_day": round(rain_day, 2),
+            "wind_speed": round(c.get("wind_speed_10m", 0), 1),
+            "wind_direction": str(c.get("wind_direction_10m", 0)),
+            "weather_condition": condition,
+            "weather_description": condition.replace("_", " ").title(),
+            "aqi": None,
+            "visibility_km": visibility_km,
+            "cloud_cover_pct": c.get("cloud_cover", 0),
+            "waterlogging_cm": 0.0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "open-meteo",
+        }
+
     async def get_current_weather(self, zone: str, city: str = "Hyderabad") -> dict:
         """Get current weather. Tries Open-Meteo first (free), then OpenWeatherMap, then mock."""
         # 1. Try Open-Meteo (completely free, no API key)

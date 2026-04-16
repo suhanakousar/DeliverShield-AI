@@ -3,12 +3,28 @@ DeliverShield AI - Weather Routes
 Weather data, forecasts, and risk assessments for delivery zones.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from app.services.weather_service import weather_service
 from app.services.risk_engine import risk_engine
 
 router = APIRouter(prefix="/api/weather", tags=["Weather"])
+
+
+@router.get("/by-coords")
+async def get_weather_by_coords(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+):
+    """Get real weather for an arbitrary lat/lon (2km precision via Open-Meteo)."""
+    weather_data = await weather_service.get_weather_by_coords(lat, lon)
+    breaches = weather_service.check_thresholds(weather_data)
+    return {
+        "weather": weather_data,
+        "thresholds_breached": len(breaches) > 0,
+        "breaches": breaches,
+        "alert_active": len(breaches) > 0,
+    }
 
 
 @router.get("/{zone}")

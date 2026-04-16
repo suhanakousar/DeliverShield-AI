@@ -108,6 +108,11 @@ export const getWeather = async (zone) => {
   return response.data;
 };
 
+export const getWeatherByCoords = async (lat, lon) => {
+  const response = await api.get(`/api/weather/by-coords?lat=${lat}&lon=${lon}`);
+  return response.data;
+};
+
 export const getWeatherForecast = async (zone) => {
   const response = await api.get(`/api/weather/${zone}/forecast`);
   return response.data;
