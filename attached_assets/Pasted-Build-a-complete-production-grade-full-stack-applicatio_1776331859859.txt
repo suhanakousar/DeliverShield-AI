@@ -1,0 +1,339 @@
+Build a complete, production-grade full-stack application called **DeliverShield AI** — an AI-powered parametric income insurance platform for food delivery partners (Swiggy/Zomato).
+
+This is NOT a demo project. It must behave like a real-world application used daily by delivery workers, with authentication, real-time monitoring, subscription, automated payouts, and advanced fraud protection.
+
+---
+
+## 🎯 CORE PRODUCT VISION
+
+Delivery partners depend on daily earnings. External disruptions (rain, heat, floods, curfews) directly reduce their income.
+
+DeliverShield AI provides:
+
+* Real-time disruption detection
+* Automated income loss calculation
+* Instant wallet credit (payout simulation with real payment flow feel)
+* Fraud-resistant system
+
+NO manual claim process.
+
+---
+
+## 🔐 AUTHENTICATION SYSTEM (MANDATORY)
+
+Implement a complete authentication system:
+
+1. Registration:
+
+   * Name
+   * Phone number OR Email
+   * Platform (Swiggy/Zomato)
+   * City
+
+2. OTP Verification:
+
+   * Send OTP (use Firebase/Auth0 or mock OTP system)
+   * Verify before account creation
+
+3. Login:
+
+   * Phone/email + OTP OR password
+   * Issue JWT token
+
+4. Middleware:
+
+   * Protect routes using JWT
+
+APIs:
+
+* POST /api/auth/register
+* POST /api/auth/send-otp
+* POST /api/auth/verify-otp
+* POST /api/auth/login
+* GET /api/auth/me
+
+---
+
+## 👤 USER PROFILE SETUP
+
+After login, user completes profile:
+
+* Orders per day
+* Earnings per order
+* Working hours
+
+Store:
+
+* daily_income = orders × earnings
+
+---
+
+## 🧠 AI RISK & PRICING ENGINE
+
+System calculates:
+
+* Risk score (0–100)
+* Weekly premium
+* Recommended plan
+
+Formula:
+risk_score = f(location_risk, weather_patterns, earnings)
+
+premium = base + (risk_score factor)
+
+Store in database.
+
+---
+
+## 💳 SUBSCRIPTION SYSTEM (REALISTIC)
+
+User selects plan:
+
+* Basic / Standard / Premium
+
+Implement simulated real payment flow:
+
+* Razorpay test UI OR Stripe sandbox UI feel
+* Payment success screen
+* Policy activated for 7 days
+
+Store:
+
+* planId
+* startDate
+* endDate
+* premium
+
+---
+
+## 📊 INTELLIGENT DASHBOARD (CORE)
+
+Dashboard must feel LIVE and intelligent.
+
+Sections:
+
+1. Wallet Balance
+
+   * Animated count-up
+   * Shows real credited payouts
+
+2. Active Coverage
+
+   * Green glowing badge
+   * Days remaining
+
+3. Risk Score
+
+   * Progress bar
+   * Label: Low / Medium / High
+
+4. Live Conditions
+
+   * Weather (Rain / Heat / Clear)
+   * Rainfall mm/hr
+   * Temperature
+   * Auto-refresh every 5 seconds
+
+5. Zone Monitoring
+
+   * “System actively monitoring your area”
+
+---
+
+## 🌦 REAL-TIME DISRUPTION DETECTION
+
+Instead of manual simulation:
+
+Implement a monitoring engine:
+
+* Use interval/cron (every 5–10 seconds for demo)
+* Fetch weather data (OpenWeather API OR mock real-like data)
+* Evaluate:
+
+Rain > 15 mm/hr
+Heat > 42°C
+Flood alert true
+
+If condition met → trigger disruption event
+
+---
+
+## 💥 AUTOMATED CLAIM & PAYOUT SYSTEM
+
+When disruption is detected:
+
+1. Validate:
+
+   * User has active policy
+   * Location matches zone
+   * User active recently
+
+2. Calculate loss:
+   loss = (daily_income / working_hours) × disruption_hours
+
+3. Create claim record
+
+4. Credit wallet instantly
+
+5. Store transaction
+
+---
+
+## 💸 REAL-TIME PAYOUT EXPERIENCE
+
+Even if backend is simulated, UX must feel real:
+
+* Show notification:
+  “Heavy rain detected in your zone”
+
+* Show popup:
+  “⚡ ₹234 credited instantly”
+
+* Trigger:
+
+  * Confetti animation
+  * Sound effect (optional)
+
+* Update wallet immediately
+
+---
+
+## 📜 CLAIM HISTORY SYSTEM
+
+Show timeline:
+
+* Event type (rain/heat/flood)
+* Amount credited
+* Timestamp
+* Status
+
+---
+
+## 🛡️ ADVANCED FRAUD DETECTION SYSTEM (PHASE 3)
+
+Implement multi-layer fraud detection:
+
+1. Multi-Source Validation
+
+   * Weather must match 2 sources (simulate second source)
+
+2. Geo-Fencing
+
+   * User city must match event location
+
+3. Activity Check
+
+   * User active in last 60 minutes
+
+4. Duplicate Claim Protection
+
+   * Unique hash (user_id + event_id)
+
+5. Claim Rate Limiting
+
+   * Max claims per week
+
+6. Cluster Detection
+
+   * Multiple claims in same zone → flag
+
+7. Anomaly Score (AI simulation)
+   anomalyScore = random(0–1)
+   if > 0.75 → suspicious
+
+If fraud detected:
+
+* Block payout
+* Show alert:
+  “⚠ Suspicious activity detected”
+
+---
+
+## 💳 WALLET SYSTEM
+
+User has:
+
+* walletBalance
+* transactionHistory
+
+Transactions:
+
+* credit (payout)
+* debit (premium)
+
+---
+
+## 👨‍💼 ADMIN DASHBOARD
+
+Admin panel shows:
+
+* Total payouts
+* Total claims
+* Fraud alerts
+* Active disruptions
+
+Charts:
+
+* Claims over time
+* Fraud vs valid claims
+
+---
+
+## 🔮 PREDICTIVE ANALYTICS (BONUS)
+
+Show:
+
+* Next week disruption forecast
+* High-risk zones
+
+---
+
+## 🎨 UI DESIGN SYSTEM
+
+* Dark gradient background
+* Glassmorphism cards
+* Glow effects for:
+
+  * money
+  * alerts
+  * active status
+* Smooth animations (Framer Motion)
+
+---
+
+## ✨ UX REQUIREMENTS
+
+* Real-time feel (polling every 5 sec)
+* Notifications system
+* Smooth transitions
+* Premium fintech look
+
+---
+
+## 🎯 FINAL PRODUCT EXPERIENCE
+
+User should feel:
+
+“I don’t need to worry. The system is tracking everything and paying me automatically.”
+
+---
+
+## 🚫 DO NOT BUILD
+
+* Fake simulate buttons as primary flow
+* Static UI
+* Plain dashboards
+
+---
+
+## 🎯 FINAL OUTPUT
+
+A fully functional application with:
+
+* Auth system
+* Realistic subscription
+* Auto payout logic
+* Fraud detection
+* Intelligent dashboard
+
+## That feels like a real insurtech startup product.

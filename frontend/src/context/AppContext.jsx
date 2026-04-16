@@ -12,6 +12,10 @@ export const AppProvider = ({ children }) => {
     }
   });
 
+  const [authToken, setAuthTokenState] = useState(() => {
+    return localStorage.getItem('delivershield_token') || null;
+  });
+
   const [isAdmin, setIsAdmin] = useState(() => {
     try {
       return localStorage.getItem('delivershield_admin') === 'true';
@@ -19,6 +23,8 @@ export const AppProvider = ({ children }) => {
       return false;
     }
   });
+
+  const [payoutPopup, setPayoutPopup] = useState(null); // { amount, disruptionType }
 
   const setCurrentWorker = (worker) => {
     setCurrentWorkerState(worker);
@@ -29,6 +35,25 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  const setAuthToken = (token) => {
+    setAuthTokenState(token);
+    if (token) {
+      localStorage.setItem('delivershield_token', token);
+    } else {
+      localStorage.removeItem('delivershield_token');
+    }
+  };
+
+  const login = (authResult) => {
+    setAuthToken(authResult.access_token);
+    setCurrentWorker({
+      id: authResult.worker_id,
+      worker_id: authResult.worker_id,
+      name: authResult.name,
+      phone: authResult.phone,
+    });
+  };
+
   const toggleAdmin = () => {
     const newVal = !isAdmin;
     setIsAdmin(newVal);
@@ -37,19 +62,37 @@ export const AppProvider = ({ children }) => {
 
   const logout = () => {
     setCurrentWorker(null);
+    setAuthToken(null);
     setIsAdmin(false);
     localStorage.removeItem('delivershield_admin');
   };
+
+  const showPayoutPopup = (amount, disruptionType) => {
+    setPayoutPopup({ amount, disruptionType });
+  };
+
+  const hidePayoutPopup = () => {
+    setPayoutPopup(null);
+  };
+
+  const isAuthenticated = !!(currentWorker && (authToken || currentWorker.worker_id || currentWorker.id));
 
   return (
     <AppContext.Provider
       value={{
         currentWorker,
         setCurrentWorker,
+        authToken,
+        setAuthToken,
         isAdmin,
         setIsAdmin,
         toggleAdmin,
         logout,
+        login,
+        isAuthenticated,
+        payoutPopup,
+        showPayoutPopup,
+        hidePayoutPopup,
       }}
     >
       {children}

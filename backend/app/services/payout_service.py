@@ -123,9 +123,11 @@ class PayoutService:
 
         db.add(payout)
 
-        # Update claim status
+        # Update claim status and credit wallet
         if payment_result["success"]:
             claim.status = "paid"
+            # Credit worker's wallet balance
+            worker.wallet_balance = (worker.wallet_balance or 0.0) + claim.payout_amount
         else:
             claim.status = "approved"  # Keep approved for retry
 

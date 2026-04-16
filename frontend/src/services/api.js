@@ -10,9 +10,13 @@ const api = axios.create({
   },
 });
 
-// Request interceptor for logging
+// Request interceptor - attach auth token
 api.interceptors.request.use(
   (config) => {
+    const token = localStorage.getItem('delivershield_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     console.log(`[API] ${config.method?.toUpperCase()} ${config.url}`);
     return config;
   },
@@ -28,7 +32,28 @@ api.interceptors.response.use(
   }
 );
 
-// Worker endpoints
+// ── Auth endpoints ──────────────────────────────
+export const sendOtp = async (phone, name) => {
+  const response = await api.post('/api/auth/send-otp', { phone, name });
+  return response.data;
+};
+
+export const registerWithOtp = async (data) => {
+  const response = await api.post('/api/auth/register', data);
+  return response.data;
+};
+
+export const loginWithOtp = async (phone, otp) => {
+  const response = await api.post('/api/auth/login', { phone, otp });
+  return response.data;
+};
+
+export const getAuthMe = async (token) => {
+  const response = await api.get(`/api/auth/me?token=${token}`);
+  return response.data;
+};
+
+// ── Worker endpoints ────────────────────────────
 export const registerWorker = async (data) => {
   const response = await api.post('/api/workers/register', data);
   return response.data;
@@ -44,7 +69,7 @@ export const getWorkerDashboard = async (workerId) => {
   return response.data;
 };
 
-// Policy endpoints
+// ── Policy endpoints ────────────────────────────
 export const subscribePlan = async (data) => {
   const response = await api.post('/api/policies/subscribe', data);
   return response.data;
@@ -60,19 +85,19 @@ export const getPlans = async () => {
   return response.data;
 };
 
-// Claims endpoints
+// ── Claims endpoints ────────────────────────────
 export const getClaims = async (workerId) => {
   const response = await api.get(`/api/claims/${workerId}`);
   return response.data;
 };
 
-// Payouts endpoints
+// ── Payouts endpoints ───────────────────────────
 export const getPayouts = async (workerId) => {
   const response = await api.get(`/api/payouts/${workerId}`);
   return response.data;
 };
 
-// Weather endpoints
+// ── Weather endpoints ───────────────────────────
 export const getWeather = async (zone) => {
   const response = await api.get(`/api/weather/${zone}`);
   return response.data;
@@ -88,7 +113,7 @@ export const getZoneRisk = async (zone) => {
   return response.data;
 };
 
-// Admin endpoints
+// ── Admin endpoints ─────────────────────────────
 export const getAdminDashboard = async () => {
   const response = await api.get('/api/admin/dashboard');
   return response.data;
@@ -118,7 +143,7 @@ export const simulateDisruption = async (data) => {
   return response.data;
 };
 
-// Trigger endpoints
+// ── Trigger endpoints ───────────────────────────
 export const checkTriggers = async () => {
   const response = await api.post('/api/triggers/check');
   return response.data;
@@ -129,7 +154,7 @@ export const getActiveTriggers = async () => {
   return response.data;
 };
 
-// Real-time endpoints
+// ── Real-time endpoints ─────────────────────────
 export const getNotifications = async (limit = 50) => {
   const response = await api.get(`/api/realtime/notifications?limit=${limit}`);
   return response.data;
@@ -150,7 +175,12 @@ export const stopMonitor = async () => {
   return response.data;
 };
 
-// SSE connection for real-time events
+export const getAdminForecast = async () => {
+  const response = await api.get('/api/admin/forecast');
+  return response.data;
+};
+
+// ── SSE real-time events ────────────────────────
 export const connectToRealtimeEvents = (onEvent, onError) => {
   const eventSource = new EventSource(`${API_BASE_URL || ''}/api/realtime/events`);
 
@@ -185,11 +215,6 @@ export const connectToRealtimeEvents = (onEvent, onError) => {
   };
 
   return eventSource;
-};
-
-export const getAdminForecast = async () => {
-  const response = await api.get('/api/admin/forecast');
-  return response.data;
 };
 
 export default api;

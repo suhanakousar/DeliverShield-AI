@@ -28,6 +28,8 @@ class Worker(Base):
     avg_orders_per_day = Column(Integer, default=20)
     working_hours = Column(Float, default=12.0)
     trust_score = Column(Float, default=70.0)
+    wallet_balance = Column(Float, default=0.0)
+    password_hash = Column(String, nullable=True)
     device_info = Column(Text, nullable=True)  # JSON string
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

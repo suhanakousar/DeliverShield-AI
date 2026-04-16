@@ -47,6 +47,7 @@ class WorkerResponse(BaseModel):
     avg_orders_per_day: int
     working_hours: float
     trust_score: float
+    wallet_balance: float = 0.0
     is_active: bool
     created_at: datetime
 

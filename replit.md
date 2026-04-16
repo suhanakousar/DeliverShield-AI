@@ -27,10 +27,20 @@ AI-Powered Parametric Income Insurance platform for food delivery partners (Swig
 
 ## Key Features
 - **Parametric Triggers**: Auto-detects weather disruptions (rain >15mm/hr, temp >42°C)
+- **JWT/OTP Authentication**: Phone-based OTP login/register; JWT tokens; 30-day expiry
+- **Wallet System**: Worker wallet_balance credited on every successful payout; animated WalletCard UI
+- **Payout Popup**: Confetti + animated modal shown when a payout is detected via SSE
 - **Fraud Detection**: GPS spoofing detection, movement pattern analysis, Trust Score system
 - **Dynamic Pricing**: Zone-based risk (Hyderabad zones) and seasonal premium adjustments
 - **AI/ML**: XGBoost for risk profiling, Isolation Forest for anomaly detection, DBSCAN for fraud rings
-- **Real-time Monitoring**: APScheduler polls weather data every 30 seconds
+- **Real-time Monitoring**: APScheduler polls weather data every 30 seconds; SSE push to browser
+- **Premium UI**: Glassmorphism `glass-card`, glow effects, confetti, animated count-up wallet
+
+## Auth System
+- Routes: `POST /api/auth/send-otp`, `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- OTP stored in-memory (`OTP_STORE`); demo OTP returned in API response for testing
+- JWT signed with `delivershield_ai_secret_key_2024_hyderabad`; 30-day tokens
+- Dependencies: `python-jose[cryptography]`, `passlib[bcrypt]`
 
 ## Environment Variables
 - `DATABASE_URL`: PostgreSQL connection string (auto-set by Replit)
