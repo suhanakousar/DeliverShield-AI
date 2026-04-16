@@ -1,52 +1,148 @@
-import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef } from 'react';
+import 'leaflet/dist/leaflet.css';
 
-/**
- * LiveMap — pure-SVG map of Hyderabad zones with risk colouring
- * + worker pulse marker. No external map tiles needed.
- *
- * Props:
- *   coords        : { lat, lng } | null
- *   zones         : [{ key, label, lat, lon, risk: 'low'|'medium'|'high'|'extreme' }]
- *   activeZoneKey : highlight zone (current disruption)
- */
-
-const HYD_BOUNDS = {
-  // Roughly covers the configured Hyderabad zone bounding box
-  minLat: 17.30, maxLat: 17.55,
-  minLng: 78.30, maxLng: 78.60,
+const RISK_COLOR = {
+  low:     '#10B981',
+  medium:  '#F59E0B',
+  high:    '#EF4444',
+  extreme: '#B91C1C',
 };
-
-const SVG_W = 600;
-const SVG_H = 380;
-
-const RISK_FILL = {
-  low: '#10B98122',       // success
-  medium: '#F59E0B22',    // primary
-  high: '#EF444433',      // danger
-  extreme: '#B91C1C55',
-};
-const RISK_STROKE = {
-  low: '#10B98166',
-  medium: '#F59E0B88',
-  high: '#EF4444AA',
-  extreme: '#B91C1CFF',
-};
-
-function project(lat, lng) {
-  const x = ((lng - HYD_BOUNDS.minLng) / (HYD_BOUNDS.maxLng - HYD_BOUNDS.minLng)) * SVG_W;
-  const y = SVG_H - ((lat - HYD_BOUNDS.minLat) / (HYD_BOUNDS.maxLat - HYD_BOUNDS.minLat)) * SVG_H;
-  return { x, y };
-}
 
 export default function LiveMap({ coords, zones = [], activeZoneKey, currentZoneKey }) {
-  const projectedZones = useMemo(
-    () => zones.map((z) => ({ ...z, ...project(z.lat, z.lon) })),
-    [zones]
-  );
+  const mapRef = useRef(null);
+  const leafletMap = useRef(null);
+  const workerMarker = useRef(null);
+  const zoneCircles = useRef([]);
 
-  const me = coords ? project(coords.lat, coords.lng) : null;
-  const inBounds = me && me.x >= 0 && me.x <= SVG_W && me.y >= 0 && me.y <= SVG_H;
+  useEffect(() => {
+    if (!mapRef.current || leafletMap.current) return;
+
+    import('leaflet').then((L) => {
+      const Lx = L.default || L;
+
+      delete Lx.Icon.Default.prototype._getIconUrl;
+      Lx.Icon.Default.mergeOptions({
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      });
+
+      const center = coords
+        ? [coords.lat, coords.lng]
+        : [17.4239, 78.4738];
+
+      const map = Lx.map(mapRef.current, {
+        center,
+        zoom: 12,
+        zoomControl: true,
+        attributionControl: true,
+      });
+
+      Lx.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      leafletMap.current = map;
+      leafletMap.current._Lx = Lx;
+
+      drawZones(Lx, map, zones, activeZoneKey, currentZoneKey);
+
+      if (coords) {
+        const icon = makeWorkerIcon(Lx);
+        workerMarker.current = Lx.marker([coords.lat, coords.lng], { icon })
+          .addTo(map)
+          .bindPopup('<b>Your Location</b>');
+        map.setView([coords.lat, coords.lng], 13);
+      }
+    });
+
+    return () => {
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+        leafletMap.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!leafletMap.current) return;
+    const Lx = leafletMap.current._Lx;
+    if (!Lx) return;
+
+    zoneCircles.current.forEach(c => c.remove());
+    zoneCircles.current = [];
+    drawZones(Lx, leafletMap.current, zones, activeZoneKey, currentZoneKey);
+  }, [zones, activeZoneKey, currentZoneKey]);
+
+  useEffect(() => {
+    if (!leafletMap.current) return;
+    const Lx = leafletMap.current._Lx;
+    if (!Lx) return;
+
+    if (coords) {
+      if (workerMarker.current) {
+        workerMarker.current.setLatLng([coords.lat, coords.lng]);
+      } else {
+        const icon = makeWorkerIcon(Lx);
+        workerMarker.current = Lx.marker([coords.lat, coords.lng], { icon })
+          .addTo(leafletMap.current)
+          .bindPopup('<b>Your Location</b>');
+      }
+      leafletMap.current.setView([coords.lat, coords.lng], 13, { animate: true });
+    }
+  }, [coords]);
+
+  function drawZones(Lx, map, zones, activeZoneKey, currentZoneKey) {
+    zones.forEach((z) => {
+      const color = RISK_COLOR[z.risk] || RISK_COLOR.low;
+      const radius = activeZoneKey === z.key ? 2800 : 2000;
+      const circle = Lx.circle([z.lat, z.lon], {
+        color,
+        fillColor: color,
+        fillOpacity: 0.12,
+        weight: activeZoneKey === z.key ? 2.5 : 1.5,
+        radius,
+      })
+        .addTo(map)
+        .bindPopup(`<b>${z.label}</b><br>Risk: ${z.risk || 'low'}`);
+
+      const labelIcon = Lx.divIcon({
+        className: '',
+        html: `<div style="
+          background: rgba(7,10,17,0.85);
+          border: 1px solid ${color}55;
+          color: ${currentZoneKey === z.key ? '#FBBF24' : '#9CA6B9'};
+          font-size: 10px;
+          font-weight: ${currentZoneKey === z.key ? 700 : 500};
+          padding: 2px 6px;
+          border-radius: 6px;
+          white-space: nowrap;
+          pointer-events: none;
+        ">${z.label}</div>`,
+        iconAnchor: [0, 0],
+      });
+
+      const labelMarker = Lx.marker([z.lat, z.lon], { icon: labelIcon, interactive: false }).addTo(map);
+
+      zoneCircles.current.push(circle, labelMarker);
+    });
+  }
+
+  function makeWorkerIcon(Lx) {
+    return Lx.divIcon({
+      className: '',
+      html: `<div style="
+        width: 20px; height: 20px;
+        background: #FBBF24;
+        border: 3px solid #070A11;
+        border-radius: 50%;
+        box-shadow: 0 0 0 4px rgba(251,191,36,0.3), 0 0 12px rgba(251,191,36,0.5);
+      "></div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+  }
 
   return (
     <div className="card p-4 h-full flex flex-col">
@@ -54,64 +150,10 @@ export default function LiveMap({ coords, zones = [], activeZoneKey, currentZone
         <h3 className="font-bold text-base-500 uppercase tracking-wider text-xs">Live Map</h3>
         <Legend />
       </div>
-
-      <div className="relative flex-1 min-h-[300px] rounded-xl overflow-hidden bg-base-950 border border-base-800">
-        <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
-          {/* Soft grid */}
-          <defs>
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#141A26" strokeWidth="0.5" />
-            </pattern>
-          </defs>
-          <rect width={SVG_W} height={SVG_H} fill="url(#grid)" />
-
-          {/* Zone bubbles */}
-          {projectedZones.map((z) => {
-            const isActive = z.key === activeZoneKey;
-            const isCurrent = z.key === currentZoneKey;
-            const r = isActive ? 60 : 42;
-            return (
-              <g key={z.key}>
-                <circle
-                  cx={z.x} cy={z.y}
-                  r={r}
-                  fill={RISK_FILL[z.risk] || RISK_FILL.low}
-                  stroke={RISK_STROKE[z.risk] || RISK_STROKE.low}
-                  strokeWidth={isActive ? 3 : 1.5}
-                />
-                {isActive && (
-                  <circle cx={z.x} cy={z.y} r={r} fill="none" stroke={RISK_STROKE[z.risk] || RISK_STROKE.high} strokeWidth="2">
-                    <animate attributeName="r" from={r} to={r + 30} dur="2s" repeatCount="indefinite" />
-                    <animate attributeName="opacity" from="0.8" to="0" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                )}
-                <text
-                  x={z.x} y={z.y - r - 6}
-                  fontSize="11"
-                  fill={isCurrent ? '#FBBF24' : '#9CA6B9'}
-                  fontWeight={isCurrent ? 700 : 500}
-                  textAnchor="middle"
-                >
-                  {z.label}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Worker marker */}
-          {inBounds && (
-            <g>
-              <circle cx={me.x} cy={me.y} r="14" fill="#F59E0B33" stroke="#F59E0B" strokeWidth="2">
-                <animate attributeName="r" from="14" to="28" dur="1.5s" repeatCount="indefinite" />
-                <animate attributeName="opacity" from="0.8" to="0" dur="1.5s" repeatCount="indefinite" />
-              </circle>
-              <circle cx={me.x} cy={me.y} r="6" fill="#FBBF24" stroke="#070A11" strokeWidth="2" />
-            </g>
-          )}
-        </svg>
-
+      <div className="relative flex-1 min-h-[300px] rounded-xl overflow-hidden border border-base-800">
+        <div ref={mapRef} style={{ width: '100%', height: '100%', minHeight: 300 }} />
         {!coords && (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-base-500">
+          <div className="absolute bottom-3 left-3 bg-base-950/90 text-xs text-base-400 px-3 py-1.5 rounded-lg border border-base-800 z-[400] pointer-events-none">
             Enable GPS to see your live position
           </div>
         )}
@@ -122,16 +164,11 @@ export default function LiveMap({ coords, zones = [], activeZoneKey, currentZone
 
 const Legend = () => (
   <div className="flex items-center gap-3 text-[10px] uppercase tracking-wider text-base-500">
-    <Swatch color="#10B981" label="Low" />
-    <Swatch color="#F59E0B" label="Med" />
-    <Swatch color="#EF4444" label="High" />
-    <Swatch color="#B91C1C" label="Extreme" />
+    {[['#10B981','Low'],['#F59E0B','Med'],['#EF4444','High'],['#B91C1C','Extreme']].map(([c,l]) => (
+      <span key={l} className="inline-flex items-center gap-1">
+        <span className="h-2 w-2 rounded-full" style={{ background: c }} />
+        {l}
+      </span>
+    ))}
   </div>
-);
-
-const Swatch = ({ color, label }) => (
-  <span className="inline-flex items-center gap-1">
-    <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-    {label}
-  </span>
 );

@@ -167,8 +167,88 @@ class WeatherService:
             "season": season,
         }
 
+    @staticmethod
+    def _wmo_to_condition(code: int) -> str:
+        """Map WMO weather code to condition string."""
+        if code in (61, 63, 65, 80, 81, 82):
+            return "heavy_rain" if code in (65, 82) else "moderate_rain"
+        if code in (51, 53, 55):
+            return "light_rain"
+        if code in (71, 73, 75, 77):
+            return "snow"
+        if code in (95, 96, 99):
+            return "thunderstorm"
+        if code in (1, 2, 3):
+            return "cloudy"
+        if code == 0:
+            return "clear"
+        return "clear"
+
+    async def _get_open_meteo(self, zone: str, city: str) -> dict:
+        """Fetch real weather from Open-Meteo (free, no API key required)."""
+        coords = self.ZONE_COORDINATES.get(zone, {"lat": 17.385, "lon": 78.4867})
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                "https://api.open-meteo.com/v1/forecast",
+                params={
+                    "latitude": coords["lat"],
+                    "longitude": coords["lon"],
+                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,rain,wind_speed_10m,wind_direction_10m,weather_code,cloud_cover",
+                    "hourly": "precipitation,visibility",
+                    "timezone": "Asia/Kolkata",
+                    "forecast_days": 1,
+                },
+            )
+        if response.status_code != 200:
+            return None
+
+        data = response.json()
+        c = data.get("current", {})
+        hourly = data.get("hourly", {})
+
+        rain_1h = c.get("rain", 0.0) or 0.0
+        hourly_precip = hourly.get("precipitation", [])
+        rain_day = sum(hourly_precip) if hourly_precip else rain_1h * 6
+
+        vis_list = hourly.get("visibility", [])
+        visibility_m = vis_list[0] if vis_list else 10000
+        visibility_km = round(visibility_m / 1000, 1)
+
+        wmo_code = c.get("weather_code", 0)
+        condition = self._wmo_to_condition(wmo_code)
+
+        temp = c.get("temperature_2m", 30.0)
+        return {
+            "zone": zone,
+            "city": city,
+            "temperature": round(temp, 1),
+            "feels_like": round(c.get("apparent_temperature", temp), 1),
+            "humidity": c.get("relative_humidity_2m", 50),
+            "rainfall_mm_hr": round(rain_1h, 2),
+            "rainfall_mm_day": round(rain_day, 2),
+            "wind_speed": round(c.get("wind_speed_10m", 0), 1),
+            "wind_direction": str(c.get("wind_direction_10m", 0)),
+            "weather_condition": condition,
+            "weather_description": condition.replace("_", " ").title(),
+            "aqi": None,
+            "visibility_km": visibility_km,
+            "cloud_cover_pct": c.get("cloud_cover", 0),
+            "waterlogging_cm": 0.0,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "source": "open-meteo",
+        }
+
     async def get_current_weather(self, zone: str, city: str = "Hyderabad") -> dict:
-        """Get current weather. Tries OpenWeatherMap first, falls back to mock."""
+        """Get current weather. Tries Open-Meteo first (free), then OpenWeatherMap, then mock."""
+        # 1. Try Open-Meteo (completely free, no API key)
+        try:
+            result = await self._get_open_meteo(zone, city)
+            if result:
+                return result
+        except Exception:
+            pass
+
+        # 2. Try OpenWeatherMap if a real key is configured
         if settings.OPENWEATHERMAP_API_KEY != "demo_key":
             try:
                 coords = self.ZONE_COORDINATES.get(zone, {"lat": 17.385, "lon": 78.4867})
@@ -192,7 +272,7 @@ class WeatherService:
                             "feels_like": data["main"]["feels_like"],
                             "humidity": data["main"]["humidity"],
                             "rainfall_mm_hr": rain_1h,
-                            "rainfall_mm_day": rain_1h * 6,  # rough estimate
+                            "rainfall_mm_day": rain_1h * 6,
                             "wind_speed": data["wind"]["speed"],
                             "wind_direction": data["wind"].get("deg", "N/A"),
                             "weather_condition": data["weather"][0]["main"].lower(),
@@ -205,8 +285,9 @@ class WeatherService:
                             "source": "openweathermap",
                         }
             except Exception:
-                pass  # Fall through to mock data
+                pass
 
+        # 3. Fall back to realistic mock data
         return self._generate_mock_weather(zone)
 
     async def get_forecast(self, zone: str, city: str = "Hyderabad") -> list:
@@ -288,7 +369,7 @@ class WeatherService:
             })
 
         # Severe Pollution
-        aqi = weather_data.get("aqi", 0)
+        aqi = weather_data.get("aqi") or 0
         if aqi > settings.AQI_THRESHOLD:
             breaches.append({
                 "trigger_type": "severe_pollution",
