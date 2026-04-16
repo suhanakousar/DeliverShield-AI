@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { connectToRealtimeEvents, getNotifications } from '../services/api';
-import { 
-  HiOutlineCloud, HiOutlineExclamation, HiOutlineClipboardList, 
-  HiOutlineCurrencyRupee, HiOutlineSearch, HiOutlineStatusOnline, HiOutlineXCircle 
+import {
+  HiOutlineCloud, HiOutlineExclamation, HiOutlineClipboardList,
+  HiOutlineCurrencyRupee, HiOutlineSearch, HiOutlineStatusOnline, HiOutlineXCircle,
+  HiPlay, HiStop, HiOutlineTruck, HiOutlineCheckCircle,
 } from 'react-icons/hi';
 
 const EVENT_ICONS = {
@@ -14,6 +15,10 @@ const EVENT_ICONS = {
   monitor_check: HiOutlineSearch,
   connected: HiOutlineStatusOnline,
   error: HiOutlineXCircle,
+  shift_started: HiPlay,
+  shift_ended: HiStop,
+  delivery_started: HiOutlineTruck,
+  delivery_completed: HiOutlineCheckCircle,
 };
 
 const EVENT_COLORS = {
@@ -24,6 +29,10 @@ const EVENT_COLORS = {
   monitor_check: 'border-base-700 bg-base-800 text-base-400',
   connected: 'border-success-500/30 bg-success-500/10 text-success-400',
   error: 'border-danger-500/30 bg-danger-500/10 text-danger-400',
+  shift_started: 'border-success-500/30 bg-success-500/10 text-success-400',
+  shift_ended: 'border-base-700 bg-base-800 text-base-400',
+  delivery_started: 'border-primary-500/30 bg-primary-500/10 text-primary-400',
+  delivery_completed: 'border-success-500/30 bg-success-500/10 text-success-400',
 };
 
 const LiveFeed = ({ maxEvents = 20, showWeatherUpdates = false, compact = false }) => {

@@ -38,6 +38,10 @@ class Worker(Base):
     policies = relationship("Policy", back_populates="worker", lazy="dynamic")
     claims = relationship("Claim", back_populates="worker", lazy="dynamic")
     payouts = relationship("Payout", back_populates="worker", lazy="dynamic")
+    shifts = relationship("ShiftSession", back_populates="worker", lazy="dynamic")
+    locations = relationship("LocationLog", back_populates="worker", lazy="dynamic")
+    deliveries = relationship("Delivery", back_populates="worker", lazy="dynamic")
+    transactions = relationship("WalletTransaction", back_populates="worker", lazy="dynamic")
 
     @property
     def hourly_rate(self) -> float:

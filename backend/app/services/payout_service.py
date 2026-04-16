@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.payout import Payout
 from app.models.claim import Claim
+from app.models.transaction import WalletTransaction
 
 
 class PayoutService:
@@ -126,8 +127,20 @@ class PayoutService:
         # Update claim status and credit wallet
         if payment_result["success"]:
             claim.status = "paid"
-            # Credit worker's wallet balance
-            worker.wallet_balance = (worker.wallet_balance or 0.0) + claim.payout_amount
+            new_balance = round((worker.wallet_balance or 0.0) + claim.payout_amount, 2)
+            worker.wallet_balance = new_balance
+
+            db.add(WalletTransaction(
+                id=str(uuid4()),
+                worker_id=worker.id,
+                direction="credit",
+                kind="payout",
+                amount=claim.payout_amount,
+                balance_after=new_balance,
+                reference_type="claim",
+                reference_id=claim.id,
+                description=f"Payout for {claim.disruption_type.replace('_', ' ')} claim",
+            ))
         else:
             claim.status = "approved"  # Keep approved for retry
 

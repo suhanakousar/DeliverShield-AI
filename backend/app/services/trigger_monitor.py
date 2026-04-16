@@ -5,10 +5,9 @@ Monitors weather conditions, detects trigger breaches, and auto-creates claims.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -16,9 +15,12 @@ from app.models.disruption import DisruptionEvent
 from app.models.worker import Worker
 from app.models.policy import Policy
 from app.models.claim import Claim
+from app.models.shift import ShiftSession
+from app.models.delivery import Delivery
 from app.services.weather_service import weather_service
 from app.services.fraud_detection import fraud_detection_service
 from app.services.income_estimator import income_estimator
+from app.services.location_service import location_service
 
 
 class TriggerMonitor:
@@ -146,21 +148,26 @@ class TriggerMonitor:
 
     def process_affected_workers(self, event: DisruptionEvent, db: Session) -> dict:
         """
-        Find all workers with active policies in the affected zone
-        and auto-create claims for them.
+        DELIVERY-AWARE worker matching.
 
-        This is the core parametric automation: no claim filing needed by the worker.
+        For each candidate worker we apply four gates BEFORE creating a claim:
+          1. Active policy + remaining coverage
+          2. Active shift (worker is on the clock)
+          3. Active delivery OR very recent delivery activity
+          4. Live GPS proves the worker is *physically present in the disrupted
+             zone* AND moving (not just registered to that zone)
+
+        Workers who are off-shift, idle, or not actually in the affected zone
+        are skipped — we record them in `skipped` for diagnostics.
         """
         today = datetime.now(timezone.utc).date()
-
-        # Find workers in the affected zone with active policies
-        # Normalize zone for case-insensitive matching
         zone_normalized = event.zone.lower().replace(" ", "_")
-        workers_with_policies = (
+
+        # Pull ALL active policies, then filter via delivery-aware gates below
+        candidates = (
             db.query(Worker, Policy)
             .join(Policy, Worker.id == Policy.worker_id)
             .filter(
-                func.lower(Worker.delivery_zone) == zone_normalized,
                 Worker.is_active == True,
                 Policy.status == "active",
                 Policy.coverage_start <= today,
@@ -170,6 +177,7 @@ class TriggerMonitor:
         )
 
         claims_created = []
+        skipped = []
         claims_approved = 0
         claims_flagged = 0
         claims_rejected = 0
@@ -177,17 +185,71 @@ class TriggerMonitor:
 
         disrupted_hours = self.SEVERITY_DISRUPTED_HOURS.get(event.severity, 3.0)
 
-        for worker, policy in workers_with_policies:
-            # Check event limits
+        for worker, policy in candidates:
+            # Gate 0: event/coverage limits
             if policy.max_events != -1 and policy.events_used >= policy.max_events:
                 continue
 
-            # Duplicate claim prevention
             existing_claim = db.query(Claim).filter(
                 Claim.worker_id == worker.id,
                 Claim.event_id == event.id
             ).first()
             if existing_claim:
+                continue
+
+            # Gate 1: shift must be active
+            shift = (
+                db.query(ShiftSession)
+                .filter(ShiftSession.worker_id == worker.id, ShiftSession.status == "active")
+                .first()
+            )
+            if not shift:
+                skipped.append({"worker_id": worker.id, "reason": "no_active_shift"})
+                continue
+
+            # Gate 2: delivery active (or completed in last 30 min)
+            active_delivery = (
+                db.query(Delivery)
+                .filter(Delivery.worker_id == worker.id, Delivery.status == "active")
+                .first()
+            )
+            if not active_delivery:
+                # Allow recently-completed delivery as a soft pass
+                recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+                recent_delivery = (
+                    db.query(Delivery)
+                    .filter(
+                        Delivery.worker_id == worker.id,
+                        Delivery.status == "completed",
+                        Delivery.ended_at >= recent_cutoff,
+                    )
+                    .first()
+                )
+                if not recent_delivery:
+                    skipped.append({"worker_id": worker.id, "reason": "no_active_delivery"})
+                    continue
+
+            # Gate 3: live GPS must place the worker in the disrupted zone
+            latest = location_service.latest_location(db, worker.id)
+            if not latest or not latest.zone:
+                skipped.append({"worker_id": worker.id, "reason": "no_gps_data"})
+                continue
+            if latest.zone.lower() != zone_normalized:
+                skipped.append({
+                    "worker_id": worker.id,
+                    "reason": "gps_zone_mismatch",
+                    "current_zone": latest.zone,
+                })
+                continue
+
+            # Gate 4: worker must actually be moving (real delivery behaviour)
+            movement = location_service.is_worker_moving(db, worker.id, minutes=10)
+            if not movement["moving"]:
+                skipped.append({
+                    "worker_id": worker.id,
+                    "reason": "not_moving",
+                    "movement": movement,
+                })
                 continue
 
             # Calculate income loss
@@ -197,14 +259,28 @@ class TriggerMonitor:
             if payout_data["payout_amount"] <= 0:
                 continue
 
-            # Run fraud detection
+            # Build rich claim_data for fraud engine using REAL GPS history
+            recent_logs = location_service.recent_logs(db, worker.id, minutes=60, limit=30)
+            gps_history = [
+                {"lat": l.lat, "lon": l.lng, "timestamp": l.recorded_at.timestamp()}
+                for l in reversed(recent_logs)
+            ]
             claim_data = {
-                "gps_data": worker.get_device_info().get("last_gps"),
-                "zone": worker.delivery_zone,
+                "gps_data": {
+                    "latitude": latest.lat,
+                    "longitude": latest.lng,
+                    "accuracy_meters": latest.accuracy_m,
+                    "is_mock": latest.is_mock,
+                    "history": gps_history,
+                },
+                "zone": latest.zone,
                 "disrupted_hours": disrupted_hours,
                 "payout_amount": payout_data["payout_amount"],
                 "recent_claim_count": worker.claims.count() if hasattr(worker.claims, 'count') else 0,
-                "time_to_claim_minutes": 0,  # Auto-triggered = instant
+                "time_to_claim_minutes": 0,
+                "shift_active": True,
+                "delivery_active": bool(active_delivery),
+                "movement": movement,
             }
 
             fraud_result = fraud_detection_service.analyze_claim(claim_data, worker, event)
@@ -273,6 +349,7 @@ class TriggerMonitor:
             "claims_rejected": claims_rejected,
             "total_payout": round(total_payout, 2),
             "claims": claims_created,
+            "skipped_workers": skipped,
         }
 
     def evaluate_trigger(self, conditions: dict) -> dict:

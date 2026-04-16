@@ -1,6 +1,19 @@
 # DeliverShield AI — Complete Documentation
 
-> AI-powered parametric income insurance platform for food-delivery partners (Swiggy / Zomato / Dunzo riders) in India. Automatic payouts when weather/curfew disruptions destroy daily earnings — no claim forms, no waiting.
+> AI-powered **delivery-aware** parametric income insurance platform for food-delivery partners (Swiggy / Zomato / Dunzo riders) in India. Automatic payouts only when a worker is **on shift, actively delivering, physically present in a disrupted zone, and moving** — no claim forms, no fake-event abuse.
+
+## ⚖️ Core product principle (read this first)
+
+The system **never** triggers a payout based on city-level weather alone.
+
+A claim only fires when ALL four delivery-aware gates pass:
+
+1. **Shift active** — the worker has clocked in via the app (`POST /api/shift/start`).
+2. **Delivery active** (or recently completed) — they're actually working an order.
+3. **Live GPS in the disrupted zone** — their last `LocationLog` snaps to the same zone as the `DisruptionEvent`. Their *registered* zone doesn't matter; their *current* zone does.
+4. **Real movement** — the GPS history of the last 10 minutes shows ≥ 0.1 km of distance and ≥ 2 km/h average speed.
+
+Workers who fail any gate are recorded in `result["skipped_workers"]` with the failing reason — useful for admin diagnostics.
 
 ---
 
@@ -117,7 +130,11 @@ DeliverShield-AI/
 │       │   ├── policy.py
 │       │   ├── claim.py
 │       │   ├── disruption.py
-│       │   └── payout.py
+│       │   ├── payout.py
+│       │   ├── shift.py          # NEW — ShiftSession (worker on the clock)
+│       │   ├── location.py       # NEW — LocationLog (GPS pings)
+│       │   ├── delivery.py       # NEW — Delivery (lifecycle)
+│       │   └── transaction.py    # NEW — WalletTransaction (ledger)
 │       ├── routes/
 │       │   ├── auth.py
 │       │   ├── workers.py
@@ -127,37 +144,43 @@ DeliverShield-AI/
 │       │   ├── weather.py
 │       │   ├── triggers.py
 │       │   ├── admin.py
-│       │   └── realtime.py       # SSE stream
+│       │   ├── realtime.py       # SSE stream
+│       │   ├── shift.py          # NEW — start/end shift
+│       │   ├── location.py       # NEW — GPS ingest + recent + status
+│       │   ├── delivery.py       # NEW — delivery lifecycle
+│       │   └── wallet.py         # NEW — wallet + tx ledger
 │       └── services/
-│           ├── fraud_detection.py
+│           ├── fraud_detection.py        # extended w/ shift + live-GPS gates
 │           ├── income_estimator.py
 │           ├── weather_service.py
 │           ├── otp_service.py
 │           ├── premium_calculator.py
 │           ├── risk_engine.py
-│           ├── trigger_monitor.py
-│           ├── payout_service.py
+│           ├── trigger_monitor.py        # delivery-aware
+│           ├── payout_service.py         # writes WalletTransaction on credit
 │           ├── realtime_monitor.py
 │           ├── platform_service.py
-│           └── traffic_service.py
+│           ├── traffic_service.py
+│           ├── shift_service.py          # NEW
+│           └── location_service.py       # NEW — haversine, jump detect, zone snap
 │
 └── frontend/
     ├── package.json
-    ├── vite.config.js
     ├── tailwind.config.js
     └── src/
-        ├── main.jsx
         ├── App.jsx
         ├── index.css
         ├── context/
-        │   └── AppContext.jsx
+        │   └── AppContext.jsx              # SSE auto-connect + payout/alert listener
         ├── services/
-        │   └── api.js
+        │   └── api.js                      # incl. shift/location/delivery/wallet APIs
+        ├── hooks/
+        │   └── useGeolocation.js           # NEW — watchPosition + 10s ping uploader
         ├── pages/
         │   ├── LandingPage.jsx
         │   ├── RegisterPage.jsx
         │   ├── LoginPage.jsx
-        │   ├── WorkerDashboard.jsx
+        │   ├── WorkerDashboard.jsx          # rebuilt: shift + map + alerts + wallet
         │   ├── PoliciesPage.jsx
         │   ├── ClaimsPage.jsx
         │   ├── AdminDashboard.jsx
@@ -174,11 +197,14 @@ DeliverShield-AI/
             ├── StatsCard.jsx
             ├── PayoutPopup.jsx
             ├── LiveWeatherBar.jsx
-            ├── LiveFeed.jsx
+            ├── LiveFeed.jsx                # extended w/ shift/delivery icons
             ├── DisruptionTimeline.jsx
             ├── Charts.jsx
             ├── LoadingSpinner.jsx
-            └── EmptyState.jsx
+            ├── EmptyState.jsx
+            ├── ShiftControl.jsx             # NEW — start/end shift + delivery, GPS status
+            ├── LiveMap.jsx                  # NEW — SVG zone map w/ risk colours + worker pulse
+            └── AlertsBanner.jsx             # NEW — top-of-dashboard disruption banner
 ```
 
 ---
@@ -299,13 +325,48 @@ payouts (
   transaction_id, razorpay_payment_id, status,
   processed_at, created_at
 )
+
+-- NEW tables added by the delivery-aware build --
+
+shift_sessions (
+  id, worker_id FK, started_at, ended_at, status,
+  start_lat, start_lng, start_zone,
+  last_lat, last_lng, last_zone, last_ping_at,
+  total_distance_km, deliveries_completed, earnings_estimated
+)
+
+location_logs (
+  id, worker_id FK, shift_id FK,
+  lat, lng, speed_kmh, accuracy_m, heading, zone,
+  is_mock, is_jump, distance_from_prev_km,
+  recorded_at,
+  INDEX (worker_id, recorded_at)
+)
+
+deliveries (
+  id, worker_id FK, shift_id FK, status,
+  started_at, ended_at,
+  pickup_lat, pickup_lng, drop_lat, drop_lng,
+  distance_km, duration_minutes, earnings,
+  order_ref, platform, delayed_by_disruption
+)
+
+wallet_transactions (
+  id, worker_id FK,
+  direction (credit|debit), kind (payout|premium|withdrawal|adjustment),
+  amount, balance_after,
+  reference_type, reference_id,
+  description, meta JSONB,
+  created_at
+)
 ```
 
 Relationships:
-- `Worker 1—n Policy`, `Worker 1—n Claim`, `Worker 1—n Payout`
+- `Worker 1—n Policy / Claim / Payout / ShiftSession / LocationLog / Delivery / WalletTransaction`
 - `Policy 1—n Claim`
 - `DisruptionEvent 1—n Claim`
 - `Claim 1—1 Payout`
+- `ShiftSession 1—n LocationLog / Delivery`
 
 ---
 
@@ -358,7 +419,7 @@ Worker → PoliciesPage
    Response: {policy_id, premium, coverage_dates, max_events}
 ```
 
-### 9.2 Automatic Payout (the headline flow)
+### 9.2 Automatic Payout (the headline flow — delivery-aware)
 
 ```
 APScheduler tick (every 30s)
@@ -373,8 +434,15 @@ trigger_monitor.check_all_zones()
    │         create DisruptionEvent
    │
    ▼
-for each worker with an active policy in the affected zone
-and (events_used < max_events) and (today within coverage):
+for each worker with an active policy
+(events_used < max_events) and (today within coverage):
+
+   ─── Gate 1: ShiftSession.status == "active"        else skip("no_active_shift")
+   ─── Gate 2: Delivery.status == "active"            else skip("no_active_delivery")
+       OR Delivery.completed within last 30 min
+   ─── Gate 3: latest LocationLog.zone == event.zone  else skip("gps_zone_mismatch")
+   ─── Gate 4: location_service.is_worker_moving(...)  else skip("not_moving")
+                (≥ 0.1 km AND ≥ 2 km/h over last 10 min)
    │
    ├── income_estimator.estimate_loss(worker, disrupted_hours)
    │     hourly = avg_daily_earnings / working_hours
@@ -541,7 +609,43 @@ Capped further by `policy.max_events − policy.events_used`.
 ### Realtime
 | Method | Path | Purpose |
 |---|---|---|
-| GET  | `/realtime/stream` | SSE event stream |
+| GET  | `/realtime/events` | SSE event stream (worker app + admin) |
+| GET  | `/realtime/notifications` | Recent buffered events |
+| GET  | `/realtime/status` | Monitor stats (subscribers, last check, totals) |
+| POST | `/realtime/start` | Start the background monitor |
+| POST | `/realtime/stop` | Stop the background monitor |
+
+SSE event types broadcast by the backend:
+`weather_update`, `disruption_detected`, `claims_created`, `payout_processed`,
+`shift_started`, `shift_ended`, `delivery_started`, `delivery_completed`, `monitor_check`, `error`.
+
+### Shift (NEW)
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/shift/start` | Start a shift (optional `lat/lng`); creates a `ShiftSession`, broadcasts `shift_started` |
+| POST | `/shift/end` | End the active shift; closes any open delivery; broadcasts `shift_ended` |
+| GET  | `/shift/{worker_id}/active` | `{ active, shift }` |
+
+### Location (NEW)
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/location/update` | Ingest a GPS ping; auto-snaps to zone, computes distance/speed, flags teleport jumps |
+| GET  | `/location/{worker_id}/recent` | Recent pings (default 30 min) |
+| GET  | `/location/{worker_id}/status` | Movement summary `{ moving, distance_km, avg_speed_kmh, ... }` |
+
+### Delivery (NEW)
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/delivery/start` | Start a delivery — requires an active shift; broadcasts `delivery_started` |
+| POST | `/delivery/end` | Complete a delivery; updates earnings + shift counters; broadcasts `delivery_completed` |
+| GET  | `/delivery/{worker_id}/active` | Currently in-progress delivery |
+| GET  | `/delivery/{worker_id}/recent` | Recent deliveries |
+
+### Wallet (NEW)
+| Method | Path | Purpose |
+|---|---|---|
+| GET  | `/wallet/{worker_id}` | Current balance + last-tx timestamp |
+| GET  | `/wallet/{worker_id}/transactions` | Append-only ledger (credits / debits / kind) |
 
 ---
 

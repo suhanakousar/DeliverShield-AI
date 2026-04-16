@@ -195,7 +195,84 @@ export const getAdminForecast = async () => {
   return response.data;
 };
 
+// ── Shift endpoints ─────────────────────────────
+export const startShift = async (workerId, lat, lng) => {
+  const response = await api.post('/api/shift/start', { worker_id: workerId, lat, lng });
+  return response.data;
+};
+
+export const endShift = async (workerId) => {
+  const response = await api.post('/api/shift/end', { worker_id: workerId });
+  return response.data;
+};
+
+export const getActiveShift = async (workerId) => {
+  const response = await api.get(`/api/shift/${workerId}/active`);
+  return response.data;
+};
+
+// ── Location endpoints ──────────────────────────
+export const updateLocation = async (payload) => {
+  const response = await api.post('/api/location/update', payload);
+  return response.data;
+};
+
+export const getRecentLocations = async (workerId, minutes = 30, limit = 100) => {
+  const response = await api.get(`/api/location/${workerId}/recent?minutes=${minutes}&limit=${limit}`);
+  return response.data;
+};
+
+export const getMovementStatus = async (workerId, minutes = 5) => {
+  const response = await api.get(`/api/location/${workerId}/status?minutes=${minutes}`);
+  return response.data;
+};
+
+// ── Delivery endpoints ──────────────────────────
+export const startDelivery = async (workerId, opts = {}) => {
+  const response = await api.post('/api/delivery/start', { worker_id: workerId, ...opts });
+  return response.data;
+};
+
+export const endDelivery = async (workerId, opts = {}) => {
+  const response = await api.post('/api/delivery/end', { worker_id: workerId, ...opts });
+  return response.data;
+};
+
+export const getActiveDelivery = async (workerId) => {
+  const response = await api.get(`/api/delivery/${workerId}/active`);
+  return response.data;
+};
+
+export const getRecentDeliveries = async (workerId, limit = 20) => {
+  const response = await api.get(`/api/delivery/${workerId}/recent?limit=${limit}`);
+  return response.data;
+};
+
+// ── Wallet endpoints ────────────────────────────
+export const getWallet = async (workerId) => {
+  const response = await api.get(`/api/wallet/${workerId}`);
+  return response.data;
+};
+
+export const getWalletTransactions = async (workerId, limit = 50) => {
+  const response = await api.get(`/api/wallet/${workerId}/transactions?limit=${limit}`);
+  return response.data;
+};
+
 // ── SSE real-time events ────────────────────────
+const SSE_EVENT_TYPES = [
+  'weather_update',
+  'disruption_detected',
+  'claims_created',
+  'payout_processed',
+  'shift_started',
+  'shift_ended',
+  'delivery_started',
+  'delivery_completed',
+  'monitor_check',
+  'error',
+];
+
 export const connectToRealtimeEvents = (onEvent, onError) => {
   const eventSource = new EventSource(`${API_BASE_URL || ''}/api/realtime/events`);
 
@@ -208,20 +285,15 @@ export const connectToRealtimeEvents = (onEvent, onError) => {
     }
   };
 
-  eventSource.addEventListener('weather_update', (event) => {
-    onEvent({ ...JSON.parse(event.data), type: 'weather_update' });
-  });
-
-  eventSource.addEventListener('disruption_detected', (event) => {
-    onEvent({ ...JSON.parse(event.data), type: 'disruption_detected' });
-  });
-
-  eventSource.addEventListener('claims_created', (event) => {
-    onEvent({ ...JSON.parse(event.data), type: 'claims_created' });
-  });
-
-  eventSource.addEventListener('payout_processed', (event) => {
-    onEvent({ ...JSON.parse(event.data), type: 'payout_processed' });
+  SSE_EVENT_TYPES.forEach((evtName) => {
+    eventSource.addEventListener(evtName, (event) => {
+      try {
+        const parsed = JSON.parse(event.data);
+        onEvent({ ...parsed, type: evtName });
+      } catch (e) {
+        console.error(`SSE parse error (${evtName}):`, e);
+      }
+    });
   });
 
   eventSource.onerror = (error) => {

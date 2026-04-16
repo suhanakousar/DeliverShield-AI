@@ -15,6 +15,10 @@ from app.models import Worker, Policy, DisruptionEvent, Claim, Payout
 from app.routes import workers, policies, claims, payouts, weather, admin, triggers
 from app.routes.realtime import router as realtime_router
 from app.routes.auth import router as auth_router
+from app.routes.shift import router as shift_router
+from app.routes.location import router as location_router
+from app.routes.delivery import router as delivery_router
+from app.routes.wallet import router as wallet_router
 from app.services.realtime_monitor import realtime_monitor
 
 
@@ -393,6 +397,10 @@ app.include_router(admin.router)
 app.include_router(triggers.router)
 app.include_router(realtime_router)
 app.include_router(auth_router)
+app.include_router(shift_router)
+app.include_router(location_router)
+app.include_router(delivery_router)
+app.include_router(wallet_router)
 
 
 @app.get("/", tags=["Health"])

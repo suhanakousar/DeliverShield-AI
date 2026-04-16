@@ -369,13 +369,46 @@ class FraudDetectionService:
         """
         flags = []
 
+        # 0. Shift / delivery gates (delivery-aware insurance: missing these is fatal)
+        if claim_data.get("shift_active") is False:
+            flags.append("shift_inactive_at_event_time")
+        if claim_data.get("delivery_active") is False:
+            flags.append("no_active_delivery_at_event_time")
+
         # 1. GPS spoofing check
         gps_result = self.check_gps_spoofing(claim_data.get("gps_data"))
         if gps_result["is_spoofed"]:
             flags.extend(gps_result["flags"])
 
-        # 2. Movement pattern check
-        movement = self.check_movement_pattern(worker.id, event.start_time if event else None)
+        # 1b. Real-history GPS jump check (if upstream provided live history)
+        history = (claim_data.get("gps_data") or {}).get("history") or []
+        if len(history) >= 2:
+            for i in range(1, len(history)):
+                prev, curr = history[i - 1], history[i]
+                dt_h = abs(curr.get("timestamp", 0) - prev.get("timestamp", 0)) / 3600.0
+                if dt_h <= 0:
+                    continue
+                dist = self._haversine_distance(
+                    prev.get("lat", 0), prev.get("lon", 0),
+                    curr.get("lat", 0), curr.get("lon", 0),
+                )
+                if dist > 5.0 and dist / dt_h > self.MAX_PLAUSIBLE_SPEED_KMH:
+                    flags.append(f"live_gps_jump_{dist:.1f}km")
+
+        # 2. Movement pattern check — prefer the live signal from location_service
+        live_movement = claim_data.get("movement")
+        if isinstance(live_movement, dict):
+            movement = {
+                "was_active_before_event": live_movement.get("moving", False),
+                "orders_before_event": 0,
+                "last_delivery_minutes_ago": 0,
+                "flags": [] if live_movement.get("moving") else ["worker_stationary_during_disruption"],
+                "suspicious": not live_movement.get("moving", False),
+                "live_avg_speed_kmh": live_movement.get("avg_speed_kmh", 0),
+                "live_distance_km": live_movement.get("distance_km", 0),
+            }
+        else:
+            movement = self.check_movement_pattern(worker.id, event.start_time if event else None)
         if movement["suspicious"]:
             flags.extend(movement["flags"])
 
