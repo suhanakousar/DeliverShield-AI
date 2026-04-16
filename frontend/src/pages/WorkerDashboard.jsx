@@ -42,8 +42,8 @@ function deriveRisk({ rainfall_mm_hr = 0, temperature = 0, waterlogging_cm = 0, 
 }
 
 const DEMO = {
-  worker: { name: 'Delivery Partner', delivery_zone: 'kukatpally', platform: 'swiggy', trust_score: 75, avg_daily_earnings: 800, wallet_balance: 0 },
-  risk: { daily_risk_score: 35, disruption_probability: 0.22, risk_level: 'medium' },
+  worker: { name: '—', delivery_zone: 'kukatpally', platform: '', trust_score: 0, avg_daily_earnings: 0, wallet_balance: 0 },
+  risk: { daily_risk_score: 0, disruption_probability: 0, risk_level: 'low' },
   earnings: { total_protected: 0, total_payouts: 0 },
   recent_claims: [],
 };

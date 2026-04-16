@@ -292,7 +292,8 @@ async def simulate_disruption(
     trigger_monitor.SEVERITY_DISRUPTED_HOURS[sim_data.severity] = sim_data.disrupted_hours
 
     # Process affected workers (creates claims with fraud detection)
-    processing_result = trigger_monitor.process_affected_workers(event, db)
+    # simulation_mode=True bypasses shift/GPS gates; matches by registered zone
+    processing_result = trigger_monitor.process_affected_workers(event, db, simulation_mode=True)
 
     # Restore original hours mapping
     trigger_monitor.SEVERITY_DISRUPTED_HOURS[sim_data.severity] = original_hours

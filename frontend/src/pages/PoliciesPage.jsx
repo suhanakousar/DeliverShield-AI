@@ -148,20 +148,13 @@ const PoliciesPage = () => {
   const handleSubscribe = async () => {
     try {
       const result = await subscribePlan({ worker_id: workerId, plan_type: paymentPlan.plan_type });
-      toast.success(`Shield activated!`);
+      toast.success('Shield activated! You are now covered.');
       setActivePolicy(result.policy || result);
       setPaymentPlan(null);
+      fetchData();
     } catch (error) {
-      // Fallback for demo
-      const demoPolicy = {
-        id: `POL-${Date.now()}`,
-        worker_id: workerId, plan_type: paymentPlan.plan_type, status: 'active',
-        weekly_premium: paymentPlan.weekly_premium, max_payout: paymentPlan.max_payout, max_events: paymentPlan.max_events,
-        events_used: 0, start_date: new Date().toISOString(), end_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      };
-      setActivePolicy(demoPolicy);
       setPaymentPlan(null);
-      toast.success(`Shield activated! (Demo)`);
+      toast.error(error?.response?.data?.detail || 'Could not activate plan. Please try again.');
     }
   };
 

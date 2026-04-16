@@ -146,7 +146,9 @@ class TriggerMonitor:
 
         return event
 
-    def process_affected_workers(self, event: DisruptionEvent, db: Session) -> dict:
+    def process_affected_workers(
+        self, event: DisruptionEvent, db: Session, simulation_mode: bool = False
+    ) -> dict:
         """
         DELIVERY-AWARE worker matching.
 
@@ -159,6 +161,10 @@ class TriggerMonitor:
 
         Workers who are off-shift, idle, or not actually in the affected zone
         are skipped — we record them in `skipped` for diagnostics.
+
+        When simulation_mode=True gates 1-4 are bypassed; workers are matched
+        by their registered delivery_zone instead of live GPS so that admins can
+        run end-to-end simulations without requiring workers to be on shift.
         """
         today = datetime.now(timezone.utc).date()
         zone_normalized = event.zone.lower().replace(" ", "_")
@@ -197,60 +203,74 @@ class TriggerMonitor:
             if existing_claim:
                 continue
 
-            # Gate 1: shift must be active
-            shift = (
-                db.query(ShiftSession)
-                .filter(ShiftSession.worker_id == worker.id, ShiftSession.status == "active")
-                .first()
-            )
-            if not shift:
-                skipped.append({"worker_id": worker.id, "reason": "no_active_shift"})
-                continue
-
-            # Gate 2: delivery active (or completed in last 30 min)
-            active_delivery = (
-                db.query(Delivery)
-                .filter(Delivery.worker_id == worker.id, Delivery.status == "active")
-                .first()
-            )
-            if not active_delivery:
-                # Allow recently-completed delivery as a soft pass
-                recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
-                recent_delivery = (
-                    db.query(Delivery)
-                    .filter(
-                        Delivery.worker_id == worker.id,
-                        Delivery.status == "completed",
-                        Delivery.ended_at >= recent_cutoff,
-                    )
+            if simulation_mode:
+                # In simulation mode: match by registered zone, skip shift/GPS gates
+                worker_zone = (worker.delivery_zone or "").lower().replace(" ", "_")
+                if worker_zone != zone_normalized:
+                    skipped.append({
+                        "worker_id": worker.id,
+                        "reason": "zone_mismatch",
+                        "worker_zone": worker_zone,
+                    })
+                    continue
+                shift = None
+                active_delivery = None
+                latest = None
+                movement = {"moving": True, "distance_m": 0, "speed_kmh": 0}
+            else:
+                # Gate 1: shift must be active
+                shift = (
+                    db.query(ShiftSession)
+                    .filter(ShiftSession.worker_id == worker.id, ShiftSession.status == "active")
                     .first()
                 )
-                if not recent_delivery:
-                    skipped.append({"worker_id": worker.id, "reason": "no_active_delivery"})
+                if not shift:
+                    skipped.append({"worker_id": worker.id, "reason": "no_active_shift"})
                     continue
 
-            # Gate 3: live GPS must place the worker in the disrupted zone
-            latest = location_service.latest_location(db, worker.id)
-            if not latest or not latest.zone:
-                skipped.append({"worker_id": worker.id, "reason": "no_gps_data"})
-                continue
-            if latest.zone.lower() != zone_normalized:
-                skipped.append({
-                    "worker_id": worker.id,
-                    "reason": "gps_zone_mismatch",
-                    "current_zone": latest.zone,
-                })
-                continue
+                # Gate 2: delivery active (or completed in last 30 min)
+                active_delivery = (
+                    db.query(Delivery)
+                    .filter(Delivery.worker_id == worker.id, Delivery.status == "active")
+                    .first()
+                )
+                if not active_delivery:
+                    recent_cutoff = datetime.now(timezone.utc) - timedelta(minutes=30)
+                    recent_delivery = (
+                        db.query(Delivery)
+                        .filter(
+                            Delivery.worker_id == worker.id,
+                            Delivery.status == "completed",
+                            Delivery.ended_at >= recent_cutoff,
+                        )
+                        .first()
+                    )
+                    if not recent_delivery:
+                        skipped.append({"worker_id": worker.id, "reason": "no_active_delivery"})
+                        continue
 
-            # Gate 4: worker must actually be moving (real delivery behaviour)
-            movement = location_service.is_worker_moving(db, worker.id, minutes=10)
-            if not movement["moving"]:
-                skipped.append({
-                    "worker_id": worker.id,
-                    "reason": "not_moving",
-                    "movement": movement,
-                })
-                continue
+                # Gate 3: live GPS must place the worker in the disrupted zone
+                latest = location_service.latest_location(db, worker.id)
+                if not latest or not latest.zone:
+                    skipped.append({"worker_id": worker.id, "reason": "no_gps_data"})
+                    continue
+                if latest.zone.lower() != zone_normalized:
+                    skipped.append({
+                        "worker_id": worker.id,
+                        "reason": "gps_zone_mismatch",
+                        "current_zone": latest.zone,
+                    })
+                    continue
+
+                # Gate 4: worker must actually be moving (real delivery behaviour)
+                movement = location_service.is_worker_moving(db, worker.id, minutes=10)
+                if not movement["moving"]:
+                    skipped.append({
+                        "worker_id": worker.id,
+                        "reason": "not_moving",
+                        "movement": movement,
+                    })
+                    continue
 
             # Calculate income loss
             loss_data = income_estimator.estimate_loss(worker, disrupted_hours)
@@ -259,21 +279,28 @@ class TriggerMonitor:
             if payout_data["payout_amount"] <= 0:
                 continue
 
-            # Build rich claim_data for fraud engine using REAL GPS history
-            recent_logs = location_service.recent_logs(db, worker.id, minutes=60, limit=30)
-            gps_history = [
-                {"lat": l.lat, "lon": l.lng, "timestamp": l.recorded_at.timestamp()}
-                for l in reversed(recent_logs)
-            ]
-            claim_data = {
-                "gps_data": {
+            # Build claim_data for fraud engine
+            if latest:
+                recent_logs = location_service.recent_logs(db, worker.id, minutes=60, limit=30)
+                gps_history = [
+                    {"lat": l.lat, "lon": l.lng, "timestamp": l.recorded_at.timestamp()}
+                    for l in reversed(recent_logs)
+                ]
+                gps_data = {
                     "latitude": latest.lat,
                     "longitude": latest.lng,
                     "accuracy_meters": latest.accuracy_m,
                     "is_mock": latest.is_mock,
                     "history": gps_history,
-                },
-                "zone": latest.zone,
+                }
+                zone_for_claim = latest.zone
+            else:
+                gps_data = {"latitude": 0.0, "longitude": 0.0, "accuracy_meters": 50, "is_mock": True, "history": []}
+                zone_for_claim = zone_normalized
+
+            claim_data = {
+                "gps_data": gps_data,
+                "zone": zone_for_claim,
                 "disrupted_hours": disrupted_hours,
                 "payout_amount": payout_data["payout_amount"],
                 "recent_claim_count": worker.claims.count() if hasattr(worker.claims, 'count') else 0,
