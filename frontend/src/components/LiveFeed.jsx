@@ -47,7 +47,10 @@ const LiveFeed = ({ maxEvents = 20, showWeatherUpdates = false, compact = false 
       try {
         const data = await getNotifications(maxEvents);
         if (data.notifications) {
-          setEvents(data.notifications.reverse());
+          const filtered = data.notifications.filter(
+            e => e.type !== 'weather_update' && e.type !== 'monitor_check'
+          );
+          setEvents(filtered.reverse());
         }
       } catch (e) {
         console.log('Could not load recent notifications');

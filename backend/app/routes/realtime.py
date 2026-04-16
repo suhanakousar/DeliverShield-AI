@@ -53,10 +53,13 @@ async def sse_events(request: Request):
     )
 
 
+HIDDEN_EVENT_TYPES = {"weather_update", "monitor_check"}
+
 @router.get("/notifications")
 async def get_notifications(limit: int = 50):
-    """Get recent real-time events/notifications."""
-    events = realtime_monitor.get_recent_events(limit)
+    """Get recent real-time events/notifications (excludes internal noise events)."""
+    all_events = realtime_monitor.get_recent_events(limit * 5)
+    events = [e for e in all_events if e.get("type") not in HIDDEN_EVENT_TYPES][-limit:]
     return {
         "notifications": events,
         "count": len(events),

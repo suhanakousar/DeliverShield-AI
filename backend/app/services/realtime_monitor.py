@@ -67,16 +67,6 @@ class RealtimeMonitor:
                 weather_data = await weather_service.get_current_weather(zone)
                 breaches = weather_service.check_thresholds(weather_data)
 
-                # Push weather update event
-                self._push_event("weather_update", {
-                    "zone": zone,
-                    "temperature": weather_data.get("temperature"),
-                    "rainfall_mm_hr": weather_data.get("rainfall_mm_hr"),
-                    "condition": weather_data.get("weather_condition"),
-                    "aqi": weather_data.get("aqi"),
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                })
-
                 if breaches:
                     for breach in breaches:
                         self.stats["triggers_fired"] += 1
