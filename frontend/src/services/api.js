@@ -43,8 +43,8 @@ export const registerWithOtp = async (data) => {
   return response.data;
 };
 
-export const loginWithOtp = async (phone, otp) => {
-  const response = await api.post('/api/auth/login', { phone, otp });
+export const loginWithPassword = async (phone, password) => {
+  const response = await api.post('/api/auth/login', { phone, password });
   return response.data;
 };
 

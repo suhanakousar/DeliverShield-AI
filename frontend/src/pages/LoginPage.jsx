@@ -4,53 +4,37 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { HiOutlineShieldCheck, HiArrowRight } from 'react-icons/hi';
 import { useApp } from '../context/AppContext';
-import { adminLogin, sendOtp, loginWithOtp } from '../services/api';
+import { adminLogin, loginWithPassword } from '../services/api';
 
 const LoginPage = () => {
   const navigate = useNavigate();
   const { login } = useApp();
   const [mode, setMode] = useState('worker');
-  const [step, setStep] = useState('phone'); 
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [demoOtp, setDemoOtp] = useState('');
+  const [password, setPassword] = useState('');
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSendOtp = async (e) => {
+  const handleWorkerLogin = async (e) => {
     e.preventDefault();
     if (!/^[6-9]\d{9}$/.test(phone.trim())) {
       toast.error('Enter a valid 10-digit mobile number');
       return;
     }
-    setLoading(true);
-    try {
-      const result = await sendOtp(phone.trim());
-      setDemoOtp(result.demo_otp);
-      setStep('otp');
-      toast.success(result.provider === 'msg91' ? 'OTP sent to your phone' : 'OTP sent successfully');
-    } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to send OTP');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault();
-    if (otp.trim().length !== 6) {
-      toast.error('Enter the 6-digit OTP');
+    if (!password.trim()) {
+      toast.error('Enter your password');
       return;
     }
+
     setLoading(true);
     try {
-      const result = await loginWithOtp(phone.trim(), otp.trim());
+      const result = await loginWithPassword(phone.trim(), password);
       login(result);
-      toast.success(`Welcome back!`);
+      toast.success('Welcome back!');
       navigate(`/dashboard/${result.worker_id}`);
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Invalid OTP');
+      toast.error(err.response?.data?.detail || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -73,7 +57,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center px-4">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md"
@@ -90,10 +74,7 @@ const LoginPage = () => {
           <div className="flex gap-2 mb-6 bg-base-950 p-1 rounded-xl border border-base-800">
             <button
               type="button"
-              onClick={() => {
-                setMode('worker');
-                setStep('phone');
-              }}
+              onClick={() => setMode('worker')}
               className={`flex-1 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${
                 mode === 'worker' ? 'bg-primary-500 text-base-950' : 'text-base-400'
               }`}
@@ -112,8 +93,7 @@ const LoginPage = () => {
           </div>
 
           {mode === 'worker' ? (
-            step === 'phone' ? (
-            <form onSubmit={handleSendOtp} className="space-y-6">
+            <form onSubmit={handleWorkerLogin} className="space-y-6">
               <div>
                 <label className="label">Phone Number</label>
                 <div className="relative flex items-center">
@@ -130,45 +110,21 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              <button type="submit" disabled={loading} className="btn-primary w-full gap-2">
-                {loading ? 'Sending...' : 'Continue'} <HiArrowRight className="w-5 h-5" />
-              </button>
-            </form>
-            ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div className="bg-base-950 rounded-xl p-4 border border-base-800 text-center">
-                <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Code sent to</p>
-                <p className="font-bold text-base-100">+91 {phone}</p>
-                {demoOtp && (
-                  <p className="text-xs text-primary-400 mt-2 font-mono">Demo OTP: {demoOtp}</p>
-                )}
-                {!demoOtp && (
-                  <p className="text-xs text-base-500 mt-2">Check your SMS inbox for the OTP.</p>
-                )}
-              </div>
-
               <div>
-                <label className="label">Enter OTP</label>
+                <label className="label">Password</label>
                 <input
-                  type="text"
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="input-field text-center text-3xl font-bold tracking-[0.5em]"
-                  autoFocus
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                  className="input-field"
                 />
               </div>
 
-              <button type="submit" disabled={loading || otp.length !== 6} className="btn-primary w-full">
-                {loading ? 'Verifying...' : 'Verify & Login'}
-              </button>
-
-              <button type="button" onClick={() => setStep('phone')} className="w-full text-sm font-bold text-base-500 hover:text-base-300 transition-colors">
-                Change phone number
+              <button type="submit" disabled={loading} className="btn-primary w-full gap-2">
+                {loading ? 'Signing in...' : 'Login'} <HiArrowRight className="w-5 h-5" />
               </button>
             </form>
-            )
           ) : (
             <form onSubmit={handleAdminLogin} className="space-y-6">
               <div>
@@ -204,7 +160,7 @@ const LoginPage = () => {
 
         {mode === 'worker' && (
           <p className="text-center mt-8 text-base-500 text-sm">
-            Don't have an account? <Link to="/register" className="text-primary-500 font-bold hover:underline">Register here</Link>
+            Don&apos;t have an account? <Link to="/register" className="text-primary-500 font-bold hover:underline">Register here</Link>
           </p>
         )}
       </motion.div>

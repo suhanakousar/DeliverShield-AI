@@ -1,11 +1,10 @@
 """
 DeliverShield AI - Authentication Routes
-JWT-based auth with worker/admin roles and MSG91 OTP support.
+JWT-based auth with local OTP signup and phone/password login.
 """
 
 from typing import Optional
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -22,11 +21,8 @@ from app.models.worker import Worker
 from app.services.otp_service import otp_service
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# ───────────────────────── Schemas ─────────────────────────
 
 class SendOTPRequest(BaseModel):
     phone: str
@@ -36,6 +32,7 @@ class SendOTPRequest(BaseModel):
 class VerifyOTPRequest(BaseModel):
     phone: str
     otp: str
+    password: str
     name: Optional[str] = None
     email: Optional[str] = None
     platform: Optional[str] = None
@@ -49,7 +46,7 @@ class VerifyOTPRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     phone: str
-    otp: str
+    password: str
 
 
 class TokenResponse(BaseModel):
@@ -73,45 +70,38 @@ class AdminTokenResponse(BaseModel):
     username: str
 
 
-# ───────────────────────── Helpers ─────────────────────────
-
-
-def get_current_worker_id(token: str) -> Optional[str]:
-    try:
-        payload = decode_token(token)
-        return payload.get("worker_id")
-    except HTTPException:
-        return None
-
-
-# ───────────────────────── Routes ─────────────────────────
-
 @router.post("/send-otp")
 async def send_otp(request: SendOTPRequest):
-    """
-    Send OTP to phone number.
-
-    Uses MSG91 when configured; otherwise falls back to demo OTP mode.
-    """
-    try:
-        return await otp_service.send_otp(request.phone)
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail="Failed to send OTP via MSG91") from exc
+    return otp_service.send_otp(request.phone)
 
 
 @router.post("/register", response_model=TokenResponse)
 async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get_db)):
-    """
-    Complete registration after OTP verification.
-    Creates worker account and issues JWT token.
-    """
-    if not await otp_service.verify_otp(request.phone, request.otp):
+    if not otp_service.verify_otp(request.phone, request.otp):
         raise HTTPException(status_code=400, detail="Invalid or expired OTP. Please try again.")
+    if len(request.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
-    # Check if already registered
     existing = db.query(Worker).filter(Worker.phone == request.phone).first()
     if existing:
-        # Already registered - just log them in
+        if existing.password_hash:
+            raise HTTPException(status_code=400, detail="Phone number already registered. Please log in.")
+
+        existing.name = request.name or existing.name
+        existing.email = request.email or existing.email
+        existing.platform = (request.platform or existing.platform or "swiggy").lower()
+        existing.partner_id = request.partner_id or existing.partner_id
+        existing.delivery_zone = (request.delivery_zone or existing.delivery_zone or "kukatpally").lower().replace(" ", "_")
+        existing.city = request.city or existing.city or "Hyderabad"
+        existing.avg_daily_earnings = request.avg_daily_earnings or existing.avg_daily_earnings or 800.0
+        existing.avg_orders_per_day = request.avg_orders_per_day or existing.avg_orders_per_day or 20
+        existing.working_hours = request.working_hours or existing.working_hours or 12.0
+        existing.password_hash = pwd_context.hash(request.password)
+
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+
         token = create_access_token({"worker_id": existing.id, "phone": existing.phone, "role": "worker"})
         return TokenResponse(
             access_token=token,
@@ -121,8 +111,8 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
             role="worker",
         )
 
-    # Create new worker
     from uuid import uuid4
+
     zone_normalized = (request.delivery_zone or "kukatpally").lower().replace(" ", "_")
     platform_normalized = (request.platform or "swiggy").lower()
 
@@ -140,6 +130,7 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
         working_hours=request.working_hours or 12.0,
         trust_score=70.0,
         wallet_balance=0.0,
+        password_hash=pwd_context.hash(request.password),
     )
 
     db.add(worker)
@@ -157,17 +148,12 @@ async def register_with_otp(request: VerifyOTPRequest, db: Session = Depends(get
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login_with_otp(request: LoginRequest, db: Session = Depends(get_db)):
-    """Login with phone + OTP."""
-    if not await otp_service.verify_otp(request.phone, request.otp):
-        raise HTTPException(status_code=400, detail="Invalid or expired OTP. Please try again.")
-
+async def login_with_password(request: LoginRequest, db: Session = Depends(get_db)):
     worker = db.query(Worker).filter(Worker.phone == request.phone).first()
     if not worker:
-        raise HTTPException(
-            status_code=404,
-            detail="No account found for this phone. Please register first.",
-        )
+        raise HTTPException(status_code=404, detail="No account found for this phone. Please register first.")
+    if not worker.password_hash or not pwd_context.verify(request.password, worker.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid phone number or password")
 
     token = create_access_token({"worker_id": worker.id, "phone": worker.phone, "role": "worker"})
     return TokenResponse(
@@ -181,7 +167,6 @@ async def login_with_otp(request: LoginRequest, db: Session = Depends(get_db)):
 
 @router.post("/admin-login", response_model=AdminTokenResponse)
 async def admin_login(request: AdminLoginRequest):
-    """Authenticate an admin operator."""
     if request.username != ADMIN_USERNAME or request.password != ADMIN_PASSWORD:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid admin credentials")
 
@@ -191,7 +176,6 @@ async def admin_login(request: AdminLoginRequest):
 
 @router.get("/me")
 async def get_me(token: str, db: Session = Depends(get_db)):
-    """Get current authenticated worker."""
     payload = decode_token(token)
 
     if payload.get("role") == "admin":

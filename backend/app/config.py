@@ -18,18 +18,10 @@ class Settings:
 
     # External APIs
     OPENWEATHERMAP_API_KEY: str = os.getenv("OPENWEATHERMAP_API_KEY", "demo_key")
-    MSG91_AUTH_KEY: str = os.getenv("MSG91_AUTH_KEY", "")
-    MSG91_SENDER_ID: str = os.getenv("MSG91_SENDER_ID", "")
-    MSG91_TEMPLATE_ID: str = os.getenv("MSG91_TEMPLATE_ID", "")
-    MSG91_SEND_OTP_URL: str = os.getenv("MSG91_SEND_OTP_URL", "https://api.msg91.com/api/sendotp.php")
-    MSG91_VERIFY_OTP_URL: str = os.getenv("MSG91_VERIFY_OTP_URL", "https://api.msg91.com/api/verifyRequestOTP.php")
-    MSG91_OTP_MESSAGE: str = os.getenv(
-        "MSG91_OTP_MESSAGE",
-        "Your verification code is ##OTP##. It expires in 5 minutes.",
-    )
+    MSG91_AUTH_KEY: str = os.getenv("MSG91_AUTH_KEY", "509240AbGIlFoYSb69e0d99fP1")
+    MSG91_TEMPLATE_ID: str = os.getenv("MSG91_TEMPLATE_ID", "69e0dc3e16b68789eb0a2745")
+    MSG91_BASE_URL: str = os.getenv("MSG91_BASE_URL", "https://api.msg91.com/api/v5/otp")
     DEFAULT_COUNTRY_CODE: str = os.getenv("DEFAULT_COUNTRY_CODE", "91")
-    OTP_EXPIRY_MINUTES: int = int(os.getenv("OTP_EXPIRY_MINUTES", "5"))
-    OTP_LENGTH: int = int(os.getenv("OTP_LENGTH", "6"))
 
     # Razorpay (mock values for demo)
     RAZORPAY_KEY_ID: str = os.getenv("RAZORPAY_KEY_ID", "rzp_test_delivershield_demo")

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { HiOutlineShieldCheck, HiArrowRight, HiCheck } from 'react-icons/hi';
+import { HiOutlineShieldCheck, HiArrowRight } from 'react-icons/hi';
 import { useApp } from '../context/AppContext';
 import { sendOtp, registerWithOtp } from '../services/api';
 
@@ -12,12 +12,19 @@ const PLATFORMS = ['Swiggy', 'Zomato'];
 const RegisterPage = () => {
   const navigate = useNavigate();
   const { login } = useApp();
-  const [step, setStep] = useState(0); 
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [demoOtp, setDemoOtp] = useState('');
   const [otp, setOtp] = useState('');
+  const [demoOtp, setDemoOtp] = useState('');
   const [formData, setFormData] = useState({
-    name: '', phone: '', platform: '', partner_id: '', zone: '', avg_daily_earnings: 800,
+    name: '',
+    phone: '',
+    platform: '',
+    partner_id: '',
+    zone: '',
+    avg_daily_earnings: 800,
+    password: '',
+    confirmPassword: '',
   });
 
   const handleChange = (e) => {
@@ -31,14 +38,23 @@ const RegisterPage = () => {
       toast.error('Please fill all required fields');
       return;
     }
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await sendOtp(formData.phone.trim(), formData.name);
-      setDemoOtp(result.demo_otp);
+      setDemoOtp(result.demo_otp || '');
       setStep(1);
-      toast.success(result.provider === 'msg91' ? 'OTP sent to your phone' : 'OTP sent!');
+      toast.success('OTP generated in the app');
     } catch (err) {
-      toast.error('Failed to send OTP');
+      toast.error(err.response?.data?.detail || 'Failed to generate OTP');
     } finally {
       setLoading(false);
     }
@@ -46,22 +62,26 @@ const RegisterPage = () => {
 
   const handleVerifyRegister = async (e) => {
     e.preventDefault();
-    if (otp.length !== 6) return;
+    if (otp.length !== 6) {
+      toast.error('Enter the 6-digit OTP');
+      return;
+    }
     setLoading(true);
     try {
       const result = await registerWithOtp({
         ...formData,
         phone: formData.phone.trim(),
         otp: otp.trim(),
+        password: formData.password,
         delivery_zone: formData.zone,
         avg_daily_earnings: Number(formData.avg_daily_earnings),
-        avg_orders_per_day: 20
+        avg_orders_per_day: 20,
       });
       login(result);
       toast.success('Account created successfully!');
       navigate(`/dashboard/${result.worker_id}`);
     } catch (err) {
-      toast.error('Registration failed');
+      toast.error(err.response?.data?.detail || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -69,7 +89,7 @@ const RegisterPage = () => {
 
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center px-4 py-12">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-xl"
@@ -118,6 +138,14 @@ const RegisterPage = () => {
                   <label className="label">Avg Daily Earnings (₹)</label>
                   <input name="avg_daily_earnings" type="number" value={formData.avg_daily_earnings} onChange={handleChange} min={100} max={5000} className="input-field" required />
                 </div>
+                <div>
+                  <label className="label">Set Password</label>
+                  <input name="password" type="password" value={formData.password} onChange={handleChange} placeholder="Minimum 6 characters" className="input-field" required />
+                </div>
+                <div>
+                  <label className="label">Confirm Password</label>
+                  <input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className="input-field" required />
+                </div>
               </div>
 
               <button type="submit" disabled={loading} className="btn-primary w-full mt-4">
@@ -127,9 +155,9 @@ const RegisterPage = () => {
           ) : (
             <form onSubmit={handleVerifyRegister} className="space-y-6">
               <div className="text-center mb-6">
-                <p className="text-sm font-bold text-base-500 mb-2">OTP sent to +91 {formData.phone}</p>
-                {demoOtp && <p className="text-xs font-mono text-primary-400">Demo OTP: {demoOtp}</p>}
-                {!demoOtp && <p className="text-xs text-base-500">Check your SMS inbox for the OTP.</p>}
+                <p className="text-sm font-bold text-base-500 mb-2">OTP generated for +91 {formData.phone}</p>
+                {demoOtp && <p className="text-xs font-mono text-primary-400">OTP: {demoOtp}</p>}
+                <p className="text-xs text-base-500">Use this OTP inside the app to finish registration.</p>
               </div>
 
               <div>
