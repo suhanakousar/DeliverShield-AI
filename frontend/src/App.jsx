@@ -48,10 +48,10 @@ const AppInner = () => {
         <Navbar />
       )}
       
-      <div className={`flex-1 flex flex-col min-w-0 ${isAuthRoute ? 'md:ml-64' : 'pt-16'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 ${isAuthRoute ? 'pt-16 md:pt-0 md:ml-60' : 'pt-20'}`}>
         {isAuthRoute && <LiveWeatherBar />}
         
-        <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden p-4 md:p-8">
+        <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-8">
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
               <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />

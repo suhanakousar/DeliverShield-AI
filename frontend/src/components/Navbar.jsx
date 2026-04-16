@@ -4,183 +4,240 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import {
   HiShieldCheck, HiMenu, HiX, HiHome, HiClipboardList, HiCash,
-  HiCog, HiLogout, HiUserAdd, HiLogin, HiCurrencyRupee,
+  HiCog, HiLogout, HiLogin, HiCurrencyRupee, HiChartBar, HiBeaker,
 } from 'react-icons/hi';
 
-const Navbar = ({ isSidebar = false }) => {
+const NavItem = ({ to, icon: Icon, label, active, onClick }) => (
+  <Link
+    to={to}
+    onClick={onClick}
+    className={`relative flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all duration-200 group ${
+      active
+        ? 'bg-primary-500/15 text-primary-400'
+        : 'text-base-400 hover:text-base-100 hover:bg-base-800'
+    }`}
+  >
+    {active && (
+      <motion.div
+        layoutId="sidebar-active"
+        className="absolute left-0 top-0 bottom-0 w-0.5 bg-primary-500 rounded-r-full"
+        transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+      />
+    )}
+    <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-primary-400' : 'text-base-500 group-hover:text-base-300'}`} />
+    <span className="truncate">{label}</span>
+  </Link>
+);
+
+const Logo = ({ onClick }) => (
+  <Link to="/" className="flex items-center gap-3 group" onClick={onClick}>
+    <div className="w-9 h-9 bg-primary-500 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30 group-hover:scale-105 transition-transform duration-200 flex-shrink-0">
+      <HiShieldCheck className="w-5 h-5 text-base-950" />
+    </div>
+    <span className="text-lg font-bold tracking-tight text-base-100 font-sans">
+      Deliver<span className="text-primary-500">Shield</span>
+    </span>
+  </Link>
+);
+
+const Sidebar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { currentWorker, logout, isAuthenticated } = useApp();
   const location = useLocation();
 
   const workerId = currentWorker?.worker_id || currentWorker?.id;
   const walletBalance = currentWorker?.wallet_balance ?? null;
+  const isAdmin = location.pathname.startsWith('/admin');
 
-  const isActive = (path) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
+  const isActive = (path) =>
+    path === '/admin'
+      ? location.pathname === '/admin'
+      : location.pathname.startsWith(path) && path !== '/';
+
   const closeMobile = () => setMobileOpen(false);
 
-  const Logo = () => (
-    <Link to="/" className="flex items-center gap-3 group" onClick={closeMobile}>
-      <div className="w-10 h-10 bg-primary-500 rounded-xl flex items-center justify-center text-base-950 group-hover:scale-105 transition-transform duration-300 shadow-lg shadow-primary-500/20">
-        <HiShieldCheck className="w-6 h-6" />
+  const workerLinks = workerId && isAuthenticated && !isAdmin ? [
+    { to: `/dashboard/${workerId}`, icon: HiHome, label: 'Dashboard' },
+    { to: `/policies/${workerId}`, icon: HiShieldCheck, label: 'Policies' },
+    { to: `/claims/${workerId}`, icon: HiCash, label: 'Claims' },
+  ] : [];
+
+  const adminLinks = isAdmin ? [
+    { to: '/admin', icon: HiChartBar, label: 'Overview' },
+    { to: '/admin/claims', icon: HiClipboardList, label: 'Manage Claims' },
+    { to: '/admin/simulate', icon: HiBeaker, label: 'Simulate Event' },
+  ] : [];
+
+  const links = isAdmin ? adminLinks : workerLinks;
+
+  const SidebarContent = () => (
+    <div className="flex flex-col h-full">
+      <div className="p-5 border-b border-base-800">
+        <Logo onClick={closeMobile} />
       </div>
-      <span className="text-xl font-bold font-sans tracking-tight text-base-100">
-        Deliver<span className="text-primary-500">Shield</span>
-      </span>
-    </Link>
-  );
 
-  const NavLinks = ({ onClick }) => (
-    <div className="flex flex-col md:flex-row gap-2 md:items-center w-full">
-      {workerId && isAuthenticated && (
-        <>
-          <NavLink to={`/dashboard/${workerId}`} icon={HiHome} label="Dashboard" active={isActive(`/dashboard/${workerId}`)} onClick={onClick} />
-          <NavLink to={`/policies/${workerId}`} icon={HiClipboardList} label="Policies" active={isActive(`/policies/${workerId}`)} onClick={onClick} />
-          <NavLink to={`/claims/${workerId}`} icon={HiCash} label="Claims" active={isActive(`/claims/${workerId}`)} onClick={onClick} />
-        </>
-      )}
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <p className="text-[11px] font-bold text-base-600 uppercase tracking-widest px-4 mb-3">
+          {isAdmin ? 'Admin' : 'Menu'}
+        </p>
+        {links.map((link) => (
+          <NavItem
+            key={link.to}
+            to={link.to}
+            icon={link.icon}
+            label={link.label}
+            active={isActive(link.to)}
+            onClick={closeMobile}
+          />
+        ))}
 
-      {location.pathname.startsWith('/admin') && (
-        <>
-          <NavLink to="/admin" icon={HiHome} label="Admin Overview" active={location.pathname === '/admin'} onClick={onClick} />
-          <NavLink to="/admin/claims" icon={HiCash} label="Manage Claims" active={location.pathname === '/admin/claims'} onClick={onClick} />
-          <NavLink to="/admin/simulate" icon={HiCog} label="Simulate Event" active={location.pathname === '/admin/simulate'} onClick={onClick} />
-        </>
-      )}
-      
-      {!isAuthenticated && !location.pathname.startsWith('/admin') && (
-        <>
-          <Link to="/login" className="md:ml-auto flex items-center gap-2 px-4 py-2.5 text-base-300 hover:text-white transition-colors font-semibold" onClick={onClick}>
-            <HiLogin className="w-5 h-5" /> Login
-          </Link>
-          <Link to="/register" className="btn-primary" onClick={onClick}>
-            Get Started
-          </Link>
-        </>
-      )}
+        {!isAdmin && isAuthenticated && (
+          <div className="pt-4 mt-4 border-t border-base-800">
+            <p className="text-[11px] font-bold text-base-600 uppercase tracking-widest px-4 mb-3">System</p>
+            <NavItem to="/admin" icon={HiCog} label="Admin Panel" active={false} onClick={closeMobile} />
+          </div>
+        )}
+
+        {isAdmin && (
+          <div className="pt-4 mt-4 border-t border-base-800">
+            <NavItem to="/" icon={HiHome} label="Back to App" active={false} onClick={closeMobile} />
+          </div>
+        )}
+      </nav>
+
+      <div className="p-4 border-t border-base-800">
+        {isAuthenticated && walletBalance !== null && (
+          <div className="flex items-center gap-3 px-3 py-2.5 bg-base-800 rounded-xl mb-3">
+            <div className="w-8 h-8 rounded-lg bg-success-500/20 flex items-center justify-center flex-shrink-0">
+              <HiCurrencyRupee className="w-4 h-4 text-success-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] text-base-500 font-medium">Wallet</p>
+              <p className="text-sm font-bold text-base-100 truncate">
+                ₹{(walletBalance || 0).toLocaleString('en-IN')}
+              </p>
+            </div>
+          </div>
+        )}
+        {isAuthenticated && (
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-base-400 hover:text-danger-400 hover:bg-danger-500/10 font-semibold text-sm transition-colors"
+          >
+            <HiLogout className="w-4 h-4 flex-shrink-0" />
+            Sign Out
+          </button>
+        )}
+      </div>
     </div>
   );
 
-  const NavLink = ({ to, icon: Icon, label, active, onClick }) => (
-    <Link 
-      to={to} 
-      onClick={onClick}
-      className={`relative flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all duration-200 overflow-hidden ${
-        active ? 'text-primary-400 bg-primary-500/10' : 'text-base-400 hover:text-base-100 hover:bg-base-800'
-      }`}
-    >
-      {active && (
-        <motion.div 
-          layoutId="activeTab" 
-          className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 rounded-r-md" 
-        />
-      )}
-      <Icon className="w-5 h-5" /> 
-      {label}
-    </Link>
-  );
-
-  if (isSidebar) {
-    return (
-      <>
-        {/* Mobile Header for Sidebar Layout */}
-        <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-base-900 border-b border-base-800 z-50 px-4 flex items-center justify-between">
-          <Logo />
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="text-base-300 hover:text-white p-2">
-            {mobileOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Sidebar */}
-        <AnimatePresence>
-          {(mobileOpen || window.innerWidth >= 768) && (
-            <motion.div 
-              initial={{ x: -300 }} 
-              animate={{ x: 0 }} 
-              exit={{ x: -300 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="fixed top-0 left-0 bottom-0 w-64 bg-base-900 border-r border-base-800 z-40 flex flex-col pt-16 md:pt-0"
-            >
-              <div className="p-6 hidden md:block">
-                <Logo />
-              </div>
-              
-              <div className="flex-1 px-4 py-4 md:py-0 overflow-y-auto space-y-1 flex flex-col">
-                <div className="text-xs font-bold text-base-500 uppercase tracking-wider mb-4 px-4 mt-4">Menu</div>
-                <NavLinks onClick={closeMobile} />
-                
-                {(!location.pathname.startsWith('/admin')) && (
-                  <div className="mt-8">
-                    <div className="text-xs font-bold text-base-500 uppercase tracking-wider mb-4 px-4">System</div>
-                    <NavLink to="/admin" icon={HiCog} label="Admin Mode" active={false} onClick={closeMobile} />
-                  </div>
-                )}
-              </div>
-
-              {isAuthenticated && (
-                <div className="p-4 border-t border-base-800 bg-base-900/50">
-                  {walletBalance !== null && (
-                    <div className="flex items-center gap-3 p-3 bg-base-800 rounded-xl mb-3">
-                      <div className="w-8 h-8 rounded-lg bg-success-500/20 text-success-400 flex items-center justify-center">
-                        <HiCurrencyRupee className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-base-400 font-medium">Wallet Balance</div>
-                        <div className="font-bold text-base-100">₹{(walletBalance || 0).toLocaleString('en-IN')}</div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-base-400 hover:text-danger-400 hover:bg-danger-500/10 font-semibold transition-colors">
-                    <HiLogout className="w-5 h-5" />
-                    Sign Out
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-        
-        {/* Mobile backdrop */}
-        {mobileOpen && (
-          <div className="md:hidden fixed inset-0 bg-black/60 z-30" onClick={closeMobile} />
-        )}
-      </>
-    );
-  }
-
-  // Topbar for Public Pages
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-base-950/80 backdrop-blur-xl border-b border-base-800">
+    <>
+      {/* Mobile top bar */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-base-900 border-b border-base-800 z-50 px-4 flex items-center justify-between">
+        <Logo onClick={closeMobile} />
+        <button
+          onClick={() => setMobileOpen(!mobileOpen)}
+          className="text-base-300 hover:text-white p-2 rounded-lg hover:bg-base-800 transition-colors"
+        >
+          {mobileOpen ? <HiX className="w-5 h-5" /> : <HiMenu className="w-5 h-5" />}
+        </button>
+      </div>
+
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 bottom-0 w-60 bg-base-900 border-r border-base-800 z-40">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile sidebar drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="md:hidden fixed inset-0 bg-black/70 z-40 backdrop-blur-sm"
+              onClick={closeMobile}
+            />
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: 'spring', bounce: 0, duration: 0.3 }}
+              className="md:hidden fixed top-16 left-0 bottom-0 w-72 bg-base-900 border-r border-base-800 z-50"
+            >
+              <SidebarContent />
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+const Topbar = () => {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAuthenticated } = useApp();
+  const closeMobile = () => setMobileOpen(false);
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-base-950/90 backdrop-blur-xl border-b border-base-800/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex items-center justify-between h-20">
-          <Logo />
-          
+          <Logo onClick={closeMobile} />
+
           <div className="hidden md:flex items-center gap-2">
-            <NavLinks onClick={closeMobile} />
+            <Link
+              to="/login"
+              className="flex items-center gap-2 px-4 py-2.5 text-base-300 hover:text-white font-semibold text-sm transition-colors rounded-lg hover:bg-base-800"
+            >
+              <HiLogin className="w-4 h-4" /> Login
+            </Link>
+            <Link to="/register" className="btn-primary text-sm py-2.5 px-5">
+              Get Started
+            </Link>
           </div>
 
-          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-base-300 p-2">
-            {mobileOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="md:hidden text-base-300 hover:text-white p-2 rounded-lg hover:bg-base-800 transition-colors"
+          >
+            {mobileOpen ? <HiX className="w-5 h-5" /> : <HiMenu className="w-5 h-5" />}
           </button>
         </div>
       </div>
 
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div 
-            initial={{ height: 0, opacity: 0 }} 
-            animate={{ height: 'auto', opacity: 1 }} 
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             className="md:hidden border-t border-base-800 bg-base-900 overflow-hidden"
           >
-            <div className="p-4 space-y-4 flex flex-col">
-              <NavLinks onClick={closeMobile} />
+            <div className="p-4 flex flex-col gap-2">
+              <Link
+                to="/login"
+                onClick={closeMobile}
+                className="flex items-center gap-2 px-4 py-3 text-base-300 hover:text-white font-semibold rounded-xl hover:bg-base-800 transition-colors"
+              >
+                <HiLogin className="w-4 h-4" /> Login
+              </Link>
+              <Link to="/register" onClick={closeMobile} className="btn-primary w-full text-sm">
+                Get Started
+              </Link>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </nav>
   );
+};
+
+const Navbar = ({ isSidebar = false }) => {
+  return isSidebar ? <Sidebar /> : <Topbar />;
 };
 
 export default Navbar;
