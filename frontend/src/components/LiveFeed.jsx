@@ -1,24 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { connectToRealtimeEvents, getNotifications } from '../services/api';
+import { 
+  HiOutlineCloud, HiOutlineExclamation, HiOutlineClipboardList, 
+  HiOutlineCurrencyRupee, HiOutlineSearch, HiOutlineStatusOnline, HiOutlineXCircle 
+} from 'react-icons/hi';
 
 const EVENT_ICONS = {
-  weather_update: '🌤️',
-  disruption_detected: '🚨',
-  claims_created: '📋',
-  payout_processed: '💰',
-  monitor_check: '🔍',
-  connected: '🟢',
-  error: '❌',
+  weather_update: HiOutlineCloud,
+  disruption_detected: HiOutlineExclamation,
+  claims_created: HiOutlineClipboardList,
+  payout_processed: HiOutlineCurrencyRupee,
+  monitor_check: HiOutlineSearch,
+  connected: HiOutlineStatusOnline,
+  error: HiOutlineXCircle,
 };
 
 const EVENT_COLORS = {
-  weather_update: 'border-blue-500/30 bg-blue-500/5',
-  disruption_detected: 'border-red-500/30 bg-red-500/5',
-  claims_created: 'border-amber-500/30 bg-amber-500/5',
-  payout_processed: 'border-emerald-500/30 bg-emerald-500/5',
-  monitor_check: 'border-slate-500/30 bg-slate-500/5',
-  connected: 'border-green-500/30 bg-green-500/5',
-  error: 'border-red-500/30 bg-red-500/5',
+  weather_update: 'border-info-500/30 bg-info-500/10 text-info-400',
+  disruption_detected: 'border-danger-500/30 bg-danger-500/10 text-danger-400',
+  claims_created: 'border-warning-500/30 bg-warning-500/10 text-warning-400',
+  payout_processed: 'border-success-500/30 bg-success-500/10 text-success-400',
+  monitor_check: 'border-base-700 bg-base-800 text-base-400',
+  connected: 'border-success-500/30 bg-success-500/10 text-success-400',
+  error: 'border-danger-500/30 bg-danger-500/10 text-danger-400',
 };
 
 const LiveFeed = ({ maxEvents = 20, showWeatherUpdates = false, compact = false }) => {
@@ -80,51 +85,64 @@ const LiveFeed = ({ maxEvents = 20, showWeatherUpdates = false, compact = false 
   };
 
   return (
-    <div className="bg-slate-800/50 rounded-xl border border-slate-700/50 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${connected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
-          <h3 className="text-sm font-semibold text-white">Live Activity Feed</h3>
+    <div className="card overflow-hidden flex flex-col p-0 h-full">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-base-800 bg-base-950/30">
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-3 w-3">
+            {connected ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-success-500"></span>
+              </>
+            ) : (
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-danger-500"></span>
+            )}
+          </div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-base-100">Live Feed</h3>
         </div>
-        <span className="text-xs text-slate-400">{events.length} events</span>
+        <span className="text-xs font-bold text-base-500">{events.length} events</span>
       </div>
 
-      <div ref={feedRef} className={`overflow-y-auto ${compact ? 'max-h-64' : 'max-h-96'} p-2 space-y-1.5`}>
+      <div ref={feedRef} className={`overflow-y-auto ${compact ? 'max-h-64' : 'max-h-96'} p-4 space-y-3 flex-1 bg-base-950/10`}>
         {events.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 text-sm">
-            <div className="text-2xl mb-2">📡</div>
-            Waiting for real-time events...
+          <div className="flex flex-col items-center justify-center h-full py-8 text-base-500 text-sm font-medium">
+            <HiOutlineStatusOnline className="w-8 h-8 mb-2 opacity-50 animate-pulse" />
+            Waiting for live events...
           </div>
         ) : (
-          events.map((event, index) => {
-            const eventType = event.type || event.data?.type || 'unknown';
-            const message = event.data?.message || event.message || eventType;
-            const icon = EVENT_ICONS[eventType] || '📌';
-            const colorClass = EVENT_COLORS[eventType] || 'border-slate-500/30 bg-slate-500/5';
-            const isNew = index === events.length - 1;
-
-            return (
-              <div
-                key={event.id || index}
-                className={`flex items-start gap-2 p-2 rounded-lg border ${colorClass} transition-all duration-500 ${
-                  isNew ? 'animate-slideIn' : ''
-                }`}
-              >
-                <span className="text-base mt-0.5 flex-shrink-0">{icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-slate-200 leading-relaxed">{message}</p>
-                  {event.data?.zone && (
-                    <span className="text-[10px] text-slate-400 mt-0.5 inline-block">
-                      {event.data.zone.replace(/_/g, ' ')}
-                    </span>
-                  )}
-                </div>
-                <span className="text-[10px] text-slate-500 flex-shrink-0 mt-0.5">
-                  {formatTime(event.timestamp || event.data?.timestamp)}
-                </span>
-              </div>
-            );
-          })
+          <AnimatePresence initial={false}>
+            {events.map((event, index) => {
+              const eventType = event.type || event.data?.type || 'unknown';
+              const message = event.data?.message || event.message || eventType;
+              const Icon = EVENT_ICONS[eventType] || HiOutlineExclamation;
+              const colorClass = EVENT_COLORS[eventType] || 'border-base-700 bg-base-800 text-base-400';
+              
+              return (
+                <motion.div
+                  key={event.id || `${event.timestamp}-${index}`}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  layout
+                  className={`flex items-start gap-3 p-3 rounded-xl border ${colorClass}`}
+                >
+                  <div className="mt-0.5 shrink-0">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-base-100 leading-snug">{message}</p>
+                    {event.data?.zone && (
+                      <span className="text-xs font-bold uppercase tracking-wider opacity-70 mt-1 inline-block">
+                        {event.data.zone.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold tracking-wider opacity-50 shrink-0 whitespace-nowrap mt-1">
+                    {formatTime(event.timestamp || event.data?.timestamp)}
+                  </span>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         )}
       </div>
     </div>

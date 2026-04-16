@@ -6,33 +6,36 @@ import {
 } from 'recharts';
 
 const CHART_COLORS = {
-  heavy_rain: '#3B82F6',
-  extreme_heat: '#F97316',
-  flood: '#06B6D4',
-  curfew: '#EF4444',
-  storm: '#A855F7',
-  default: '#6366F1',
+  heavy_rain: '#38BDF8', // info-400
+  extreme_heat: '#FBBF24', // warning-400
+  flood: '#F59E0B', // primary-500
+  curfew: '#F87171', // danger-400
+  storm: '#A78BFA', // purple-400
+  default: '#F59E0B',
 };
 
-const PIE_COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#06B6D4', '#A855F7'];
+const PIE_COLORS = ['#F59E0B', '#10B981', '#FBBF24', '#F87171', '#38BDF8', '#A78BFA'];
 
 const CustomTooltip = ({ active, payload, label, prefix = '' }) => {
   if (!active || !payload || !payload.length) return null;
 
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 shadow-xl">
-      {label && <p className="text-xs text-slate-400 mb-1">{label}</p>}
+    <div className="bg-base-900 border border-base-700 rounded-xl p-3 shadow-xl">
+      {label && <p className="text-xs font-bold uppercase tracking-wider text-base-500 mb-2">{label}</p>}
       {payload.map((entry, index) => (
-        <p key={index} className="text-sm font-semibold" style={{ color: entry.color || entry.fill }}>
-          {prefix}{typeof entry.value === 'number' ? entry.value.toLocaleString('en-IN') : entry.value}
-        </p>
+        <div key={index} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color || entry.fill }} />
+          <p className="text-sm font-bold text-base-100">
+            <span className="text-base-400 font-medium mr-2">{entry.name}:</span>
+            {prefix}{typeof entry.value === 'number' ? entry.value.toLocaleString('en-IN') : entry.value}
+          </p>
+        </div>
       ))}
     </div>
   );
 };
 
 export const ClaimsByTypeChart = ({ data = [] }) => {
-  // Transform data if needed
   const chartData = Array.isArray(data) ? data.map(item => ({
     name: (item.type || item.name || item.disruption_type || '').replace(/_/g, ' '),
     value: item.count || item.value || 0,
@@ -40,7 +43,6 @@ export const ClaimsByTypeChart = ({ data = [] }) => {
   })) : [];
 
   if (chartData.length === 0) {
-    // Demo data
     chartData.push(
       { name: 'Heavy Rain', value: 45, type: 'heavy_rain' },
       { name: 'Extreme Heat', value: 28, type: 'extreme_heat' },
@@ -61,6 +63,7 @@ export const ClaimsByTypeChart = ({ data = [] }) => {
           paddingAngle={4}
           dataKey="value"
           stroke="none"
+          cornerRadius={4}
         >
           {chartData.map((entry, index) => (
             <Cell
@@ -69,12 +72,13 @@ export const ClaimsByTypeChart = ({ data = [] }) => {
             />
           ))}
         </Pie>
-        <Tooltip content={<CustomTooltip />} />
+        <Tooltip content={<CustomTooltip />} cursor={false} />
         <Legend
           verticalAlign="bottom"
           height={36}
+          iconType="circle"
           formatter={(value) => (
-            <span className="text-xs text-slate-400 capitalize">{value}</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-base-400 ml-1">{value}</span>
           )}
         />
       </PieChart>
@@ -103,22 +107,24 @@ export const WeeklyPayoutsChart = ({ data = [] }) => {
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={chartData} barCategoryGap="20%">
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+      <BarChart data={chartData} barCategoryGap="25%">
+        <CartesianGrid strokeDasharray="3 3" stroke="#202836" vertical={false} />
         <XAxis
           dataKey="week"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#94A3B8', fontSize: 12 }}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
+          dy={10}
         />
         <YAxis
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#94A3B8', fontSize: 12 }}
-          tickFormatter={(v) => `\u20B9${(v / 1000).toFixed(0)}k`}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
+          tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
+          dx={-10}
         />
-        <Tooltip content={<CustomTooltip prefix={'\u20B9'} />} cursor={{ fill: 'rgba(99,102,241,0.1)' }} />
-        <Bar dataKey="amount" fill="#6366F1" radius={[6, 6, 0, 0]} />
+        <Tooltip content={<CustomTooltip prefix="₹" />} cursor={{ fill: '#202836', opacity: 0.5 }} />
+        <Bar dataKey="amount" fill="#F59E0B" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -146,35 +152,36 @@ export const RiskTrendChart = ({ data = [] }) => {
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <AreaChart data={chartData}>
+      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <defs>
           <linearGradient id="riskGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+            <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
+            <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+        <CartesianGrid strokeDasharray="3 3" stroke="#202836" vertical={false} />
         <XAxis
           dataKey="time"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#94A3B8', fontSize: 12 }}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
+          dy={10}
         />
         <YAxis
           domain={[0, 100]}
           axisLine={false}
           tickLine={false}
-          tick={{ fill: '#94A3B8', fontSize: 12 }}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
         />
         <Tooltip content={<CustomTooltip />} />
         <Area
           type="monotone"
           dataKey="risk"
-          stroke="#6366F1"
-          strokeWidth={2}
+          stroke="#F59E0B"
+          strokeWidth={3}
           fill="url(#riskGradient)"
-          dot={{ fill: '#6366F1', r: 3 }}
-          activeDot={{ r: 5, fill: '#818CF8' }}
+          dot={{ fill: '#F59E0B', strokeWidth: 2, r: 4, stroke: '#0B101A' }}
+          activeDot={{ r: 6, fill: '#F59E0B', stroke: '#0B101A', strokeWidth: 2 }}
         />
       </AreaChart>
     </ResponsiveContainer>
@@ -182,9 +189,9 @@ export const RiskTrendChart = ({ data = [] }) => {
 };
 
 export const ForecastChart = ({ data }) => {
-  if (!data || data.length === 0) {
-    // Demo data if API returns empty
-    data = [
+  let chartData = data;
+  if (!chartData || chartData.length === 0) {
+    chartData = [
       { day: 'Mon', risk: 35, rain_prob: 20 },
       { day: 'Tue', risk: 45, rain_prob: 40 },
       { day: 'Wed', risk: 72, rain_prob: 85 },
@@ -197,17 +204,23 @@ export const ForecastChart = ({ data }) => {
 
   return (
     <ResponsiveContainer width="100%" height={250}>
-      <AreaChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-        <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
-        <YAxis stroke="#94a3b8" fontSize={12} />
-        <Tooltip
-          contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}
-          labelStyle={{ color: '#e2e8f0' }}
-          itemStyle={{ color: '#e2e8f0' }}
+      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#202836" vertical={false} />
+        <XAxis 
+          dataKey="day" 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
+          dy={10}
         />
-        <Area type="monotone" dataKey="risk" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.1} name="Risk Score" />
-        <Area type="monotone" dataKey="rain_prob" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} name="Rain %" />
+        <YAxis 
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: '#717D96', fontSize: 10, fontWeight: 'bold' }}
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Area type="monotone" dataKey="risk" stroke="#F59E0B" strokeWidth={2} fill="#F59E0B" fillOpacity={0.1} name="Risk Score" />
+        <Area type="monotone" dataKey="rain_prob" stroke="#38BDF8" strokeWidth={2} fill="#38BDF8" fillOpacity={0.1} name="Rain %" />
       </AreaChart>
     </ResponsiveContainer>
   );

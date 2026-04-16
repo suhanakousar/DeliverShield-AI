@@ -1,26 +1,32 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { HiInbox } from 'react-icons/hi';
 
 const EmptyState = ({ icon: Icon = HiInbox, title, message, ctaText, ctaLink, onCtaClick }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-      <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-4 border border-slate-700">
-        <Icon className="w-10 h-10 text-slate-500" />
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center py-20 px-6 text-center card border-dashed border-2 border-base-700 bg-base-900/50"
+    >
+      <div className="w-24 h-24 bg-base-950 rounded-3xl flex items-center justify-center mb-6 border border-base-800 shadow-inner">
+        <Icon className="w-12 h-12 text-base-500" />
       </div>
-      <h3 className="text-lg font-semibold text-slate-300 mb-2">{title}</h3>
-      {message && <p className="text-sm text-slate-500 max-w-sm mb-6">{message}</p>}
+      <h3 className="text-2xl font-bold font-sans text-base-100 mb-3">{title}</h3>
+      {message && <p className="text-base text-base-400 max-w-md mb-8 leading-relaxed">{message}</p>}
+      
       {ctaText && ctaLink && (
-        <Link to={ctaLink} className="btn-primary">
+        <Link to={ctaLink} className="btn-primary shadow-lg shadow-primary-500/20">
           {ctaText}
         </Link>
       )}
       {ctaText && onCtaClick && (
-        <button onClick={onCtaClick} className="btn-primary">
+        <button onClick={onCtaClick} className="btn-primary shadow-lg shadow-primary-500/20">
           {ctaText}
         </button>
       )}
-    </div>
+    </motion.div>
   );
 };
 

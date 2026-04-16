@@ -1,181 +1,89 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { HiFilter, HiCurrencyRupee, HiClock, HiCheckCircle, HiShieldCheck } from 'react-icons/hi';
-import { useApp } from '../context/AppContext';
-import { getClaims, getPayouts } from '../services/api';
+import { motion } from 'framer-motion';
+import { HiOutlineFilter, HiOutlineSearch } from 'react-icons/hi';
+import { getClaims } from '../services/api';
 import ClaimCard from '../components/ClaimCard';
-import StatsCard from '../components/StatsCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import EmptyState from '../components/EmptyState';
 
-const DISRUPTION_TYPES = [
-  { value: '', label: 'All Types' },
-  { value: 'heavy_rain', label: 'Heavy Rain' },
-  { value: 'extreme_heat', label: 'Extreme Heat' },
-  { value: 'flood', label: 'Flood' },
-  { value: 'curfew', label: 'Curfew/Bandh' },
-];
-
-const STATUS_OPTIONS = [
-  { value: '', label: 'All Status' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'approved', label: 'Approved' },
-  { value: 'paid', label: 'Paid' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'flagged', label: 'Flagged' },
-];
-
 const ClaimsPage = () => {
   const { workerId } = useParams();
-  const { currentWorker } = useApp();
   const [claims, setClaims] = useState([]);
-  const [payouts, setPayouts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterType, setFilterType] = useState('');
+  const [filter, setFilter] = useState('all');
 
   const fetchData = useCallback(async () => {
     try {
-      const results = await Promise.allSettled([
-        getClaims(workerId),
-        getPayouts(workerId),
-      ]);
-
-      if (results[0].status === 'fulfilled') {
-        const claimsData = Array.isArray(results[0].value) ? results[0].value : results[0].value?.claims || [];
-        setClaims(claimsData);
-      }
-
-      if (results[1].status === 'fulfilled') {
-        const payoutsData = Array.isArray(results[1].value) ? results[1].value : results[1].value?.payouts || [];
-        setPayouts(payoutsData);
-      }
+      const result = await getClaims(workerId);
+      const claimsData = Array.isArray(result) ? result : result?.claims || [];
+      setClaims(claimsData);
     } catch (error) {
-      console.error('Error fetching claims:', error);
+      console.error(error);
     } finally {
       setLoading(false);
     }
   }, [workerId]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Computed values
-  const filteredClaims = claims.filter(claim => {
-    const matchStatus = !filterStatus || (claim.status || '').toLowerCase() === filterStatus;
-    const matchType = !filterType || (claim.disruption_type || claim.type || '').toLowerCase() === filterType;
-    return matchStatus && matchType;
-  }).sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0));
+  const filteredClaims = claims.filter(c => {
+    if (filter === 'all') return true;
+    return (c.status || '').toLowerCase() === filter;
+  }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-  const totalClaims = claims.length;
   const totalPaid = claims
     .filter(c => (c.status || '').toLowerCase() === 'paid')
     .reduce((sum, c) => sum + (c.payout_amount || c.payout || 0), 0);
-  const pendingClaims = claims.filter(c => (c.status || '').toLowerCase() === 'pending').length;
-  const approvedAmount = claims
-    .filter(c => ['paid', 'approved'].includes((c.status || '').toLowerCase()))
-    .reduce((sum, c) => sum + (c.payout_amount || c.payout || 0), 0);
 
-  if (loading) return <LoadingSpinner fullScreen text="Loading claims..." />;
+  if (loading) return <LoadingSpinner fullScreen text="Loading Claims" />;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Claims History</h1>
-        <p className="text-slate-400">Track all your disruption claims and payouts.</p>
-      </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatsCard
-          icon={HiCheckCircle}
-          label="Total Claims"
-          value={totalClaims}
-          color="primary"
-        />
-        <StatsCard
-          icon={HiCurrencyRupee}
-          label="Total Paid"
-          value={`\u20B9${totalPaid.toLocaleString('en-IN')}`}
-          color="accent"
-        />
-        <StatsCard
-          icon={HiClock}
-          label="Pending"
-          value={pendingClaims}
-          color="amber"
-        />
-        <StatsCard
-          icon={HiCurrencyRupee}
-          label="Approved Amount"
-          value={`\u20B9${approvedAmount.toLocaleString('en-IN')}`}
-          color="blue"
-        />
-      </div>
-
-      {/* Filters */}
-      <div className="card mb-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 text-sm text-slate-400">
-            <HiFilter className="w-4 h-4" />
-            <span>Filters:</span>
-          </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="select-field max-w-[180px]"
-          >
-            {STATUS_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="select-field max-w-[180px]"
-          >
-            {DISRUPTION_TYPES.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
-          {(filterStatus || filterType) && (
-            <button
-              onClick={() => { setFilterStatus(''); setFilterType(''); }}
-              className="text-sm text-primary-400 hover:text-primary-300"
-            >
-              Clear filters
-            </button>
-          )}
-          <span className="text-xs text-slate-500 ml-auto">
-            {filteredClaims.length} of {totalClaims} claims
-          </span>
+    <div className="space-y-8 pb-12">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-extrabold font-sans tracking-tighter text-base-100 mb-2">
+            Claims History
+          </h1>
+          <p className="text-base-400 font-medium">Review your automatic payouts and disruption records.</p>
+        </div>
+        
+        <div className="card p-4 border-primary-500/30 bg-primary-900/10 min-w-[200px]">
+          <p className="text-xs font-bold text-primary-500 uppercase tracking-wider mb-1">Total Paid Out</p>
+          <p className="text-3xl font-extrabold text-base-100">₹{totalPaid.toLocaleString('en-IN')}</p>
         </div>
       </div>
 
-      {/* Claims List */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex items-center gap-2 text-base-500 mr-2 shrink-0">
+          <HiOutlineFilter className="w-5 h-5" />
+        </div>
+        {['all', 'paid', 'pending', 'rejected'].map(status => (
+          <button
+            key={status}
+            onClick={() => setFilter(status)}
+            className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${
+              filter === status ? 'bg-base-100 text-base-950' : 'bg-base-900 text-base-400 hover:bg-base-800 hover:text-base-200'
+            }`}
+          >
+            {status}
+          </button>
+        ))}
+      </div>
+
       {filteredClaims.length > 0 ? (
         <div className="space-y-4">
-          {filteredClaims.map((claim, index) => (
-            <ClaimCard key={claim.id || index} claim={claim} expandable={true} />
+          {filteredClaims.map((claim, i) => (
+            <ClaimCard key={claim.id || i} claim={claim} />
           ))}
         </div>
-      ) : totalClaims > 0 ? (
-        <EmptyState
-          icon={HiFilter}
-          title="No Matching Claims"
-          message="Try adjusting your filters to see more claims."
-          ctaText="Clear Filters"
-          onCtaClick={() => { setFilterStatus(''); setFilterType(''); }}
-        />
       ) : (
         <EmptyState
-          icon={HiShieldCheck}
-          title="No Disruptions Detected Yet"
-          message="Your coverage is active and monitoring for disruptions. Claims will appear here automatically when qualifying events occur."
-          ctaText="View Policy"
-          ctaLink={`/policies/${workerId}`}
+          icon={HiOutlineSearch}
+          title="No claims found"
+          message={filter === 'all' ? "You don't have any disruption claims yet." : `No claims found with status '${filter}'.`}
+          ctaText={filter !== 'all' ? "Clear Filter" : null}
+          onCtaClick={() => setFilter('all')}
         />
       )}
     </div>

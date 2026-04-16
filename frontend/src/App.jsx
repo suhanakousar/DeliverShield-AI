@@ -1,6 +1,7 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AppProvider, useApp } from './context/AppContext';
 import Navbar from './components/Navbar';
 import LiveWeatherBar from './components/LiveWeatherBar';
@@ -15,59 +16,91 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminClaimsPage from './pages/AdminClaimsPage';
 import SimulateDisruptionPage from './pages/SimulateDisruptionPage';
 
+const PageWrapper = ({ children }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+      className="w-full"
+    >
+      {children}
+    </motion.div>
+  );
+};
+
 const AppInner = () => {
-  const { payoutPopup, hidePayoutPopup } = useApp();
+  const { payoutPopup, hidePayoutPopup, isAuthenticated } = useApp();
+  const location = useLocation();
+
+  // Layout check
+  const isAuthRoute = location.pathname.includes('/dashboard') || 
+                      location.pathname.includes('/policies') || 
+                      location.pathname.includes('/claims') || 
+                      location.pathname.includes('/admin');
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <Navbar />
-      <LiveWeatherBar />
-      <main className="pt-16">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/dashboard/:workerId" element={<WorkerDashboard />} />
-          <Route path="/policies/:workerId" element={<PoliciesPage />} />
-          <Route path="/claims/:workerId" element={<ClaimsPage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/claims" element={<AdminClaimsPage />} />
-          <Route path="/admin/simulate" element={<SimulateDisruptionPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+    <div className="min-h-[100dvh] bg-base-950 text-base-100 flex flex-col md:flex-row font-body">
+      {isAuthRoute ? (
+        <Navbar isSidebar />
+      ) : (
+        <Navbar />
+      )}
+      
+      <div className={`flex-1 flex flex-col min-w-0 ${isAuthRoute ? 'md:ml-64' : 'pt-16'}`}>
+        {isAuthRoute && <LiveWeatherBar />}
+        
+        <main className="flex-1 w-full max-w-7xl mx-auto overflow-hidden p-4 md:p-8">
+          <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
+              <Route path="/login" element={<PageWrapper><LoginPage /></PageWrapper>} />
+              <Route path="/register" element={<PageWrapper><RegisterPage /></PageWrapper>} />
+              
+              <Route path="/dashboard/:workerId" element={<PageWrapper><WorkerDashboard /></PageWrapper>} />
+              <Route path="/policies/:workerId" element={<PageWrapper><PoliciesPage /></PageWrapper>} />
+              <Route path="/claims/:workerId" element={<PageWrapper><ClaimsPage /></PageWrapper>} />
+              
+              <Route path="/admin" element={<PageWrapper><AdminDashboard /></PageWrapper>} />
+              <Route path="/admin/claims" element={<PageWrapper><AdminClaimsPage /></PageWrapper>} />
+              <Route path="/admin/simulate" element={<PageWrapper><SimulateDisruptionPage /></PageWrapper>} />
+              
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </AnimatePresence>
+        </main>
+      </div>
 
       {/* Global Payout Popup */}
-      {payoutPopup && (
-        <PayoutPopup
-          amount={payoutPopup.amount}
-          disruptionType={payoutPopup.disruptionType}
-          onClose={hidePayoutPopup}
-        />
-      )}
+      <AnimatePresence>
+        {payoutPopup && (
+          <PayoutPopup
+            amount={payoutPopup.amount}
+            disruptionType={payoutPopup.disruptionType}
+            onClose={hidePayoutPopup}
+          />
+        )}
+      </AnimatePresence>
 
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#1E293B',
-            color: '#F1F5F9',
-            border: '1px solid #334155',
-            borderRadius: '0.75rem',
-            padding: '12px 16px',
+            background: '#141A26',
+            color: '#E4E8F1',
+            border: '1px solid #202836',
+            borderRadius: '1rem',
+            padding: '16px',
+            fontFamily: 'DM Sans, sans-serif',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
           },
           success: {
-            iconTheme: {
-              primary: '#10B981',
-              secondary: '#F1F5F9',
-            },
+            iconTheme: { primary: '#10B981', secondary: '#141A26' },
           },
           error: {
-            iconTheme: {
-              primary: '#EF4444',
-              secondary: '#F1F5F9',
-            },
+            iconTheme: { primary: '#EF4444', secondary: '#141A26' },
           },
         }}
       />

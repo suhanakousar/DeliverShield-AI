@@ -2,35 +2,35 @@ import React from 'react';
 
 const riskConfig = {
   low: {
-    label: 'Low',
-    bg: 'bg-emerald-500/15',
-    text: 'text-emerald-400',
-    border: 'border-emerald-500/30',
-    dot: 'bg-emerald-400',
+    label: 'Low Risk',
+    bg: 'bg-success-500/15',
+    text: 'text-success-400',
+    border: 'border-success-500/30',
+    dot: 'bg-success-400',
     pulse: false,
   },
   medium: {
-    label: 'Medium',
-    bg: 'bg-yellow-500/15',
-    text: 'text-yellow-400',
-    border: 'border-yellow-500/30',
-    dot: 'bg-yellow-400',
+    label: 'Medium Risk',
+    bg: 'bg-warning-500/15',
+    text: 'text-warning-400',
+    border: 'border-warning-500/30',
+    dot: 'bg-warning-400',
     pulse: false,
   },
   high: {
-    label: 'High',
-    bg: 'bg-orange-500/15',
-    text: 'text-orange-400',
-    border: 'border-orange-500/30',
-    dot: 'bg-orange-400',
+    label: 'High Risk',
+    bg: 'bg-danger-500/20',
+    text: 'text-danger-400',
+    border: 'border-danger-500/40',
+    dot: 'bg-danger-400',
     pulse: true,
   },
   extreme: {
-    label: 'Extreme',
-    bg: 'bg-red-500/15',
-    text: 'text-red-400',
-    border: 'border-red-500/30',
-    dot: 'bg-red-400',
+    label: 'Extreme Risk',
+    bg: 'bg-danger-600/30',
+    text: 'text-danger-300',
+    border: 'border-danger-500/50',
+    dot: 'bg-danger-400',
     pulse: true,
   },
 };
@@ -40,12 +40,12 @@ const RiskBadge = ({ level = 'low', size = 'sm' }) => {
   const config = riskConfig[normalizedLevel] || riskConfig.low;
 
   const sizeClasses = size === 'lg'
-    ? 'px-3 py-1.5 text-sm'
-    : 'px-2 py-0.5 text-xs';
+    ? 'px-4 py-2 text-sm'
+    : 'px-3 py-1 text-xs';
 
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 ${sizeClasses} rounded-full font-medium border ${config.bg} ${config.text} ${config.border}`}
+    <div
+      className={`inline-flex items-center gap-2 ${sizeClasses} rounded-full font-bold uppercase tracking-wider border ${config.bg} ${config.text} ${config.border}`}
     >
       <span className="relative flex h-2 w-2">
         {config.pulse && (
@@ -54,7 +54,7 @@ const RiskBadge = ({ level = 'low', size = 'sm' }) => {
         <span className={`relative inline-flex rounded-full h-2 w-2 ${config.dot}`} />
       </span>
       {config.label}
-    </span>
+    </div>
   );
 };
 

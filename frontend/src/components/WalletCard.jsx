@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { HiCurrencyRupee, HiTrendingUp, HiArrowUp } from 'react-icons/hi';
+import { motion } from 'framer-motion';
+import { HiCurrencyRupee, HiExternalLink } from 'react-icons/hi';
 
-const useCountUp = (target, duration = 1200) => {
+const useCountUp = (target, duration = 1500) => {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -10,7 +11,7 @@ const useCountUp = (target, duration = 1200) => {
     const tick = () => {
       const elapsed = Date.now() - start;
       const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
+      const eased = 1 - Math.pow(1 - progress, 3); // cubic ease out
       setCount(Math.floor(eased * target));
       if (progress < 1) requestAnimationFrame(tick);
     };
@@ -34,72 +35,68 @@ const WalletCard = ({ balance = 0, totalPayouts = 0, recentAmount = null }) => {
   }, [recentAmount]);
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl p-6 transition-all duration-700 ${
-      highlight
-        ? 'bg-gradient-to-br from-emerald-900/60 via-slate-800 to-slate-800 border border-emerald-500/60 shadow-lg shadow-emerald-500/20'
-        : 'bg-gradient-to-br from-slate-800 via-slate-800 to-primary-900/20 border border-slate-700/50'
-    }`}>
-      {/* Background glow */}
-      <div className={`absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl transition-all duration-700 ${
-        highlight ? 'bg-emerald-500/20' : 'bg-primary-500/10'
-      }`} />
+    <motion.div 
+      variants={{ hidden: { opacity: 0, scale: 0.95 }, visible: { opacity: 1, scale: 1 } }}
+      className={`relative overflow-hidden rounded-3xl p-8 border transition-all duration-700 h-full flex flex-col justify-between ${
+        highlight 
+          ? 'bg-success-900/40 border-success-500/50 shadow-2xl shadow-success-500/20' 
+          : 'bg-gradient-to-br from-base-900 to-base-800 border-base-700 shadow-xl'
+      }`}
+    >
+      {/* Background decorations */}
+      <div className="absolute -top-24 -right-24 w-64 h-64 bg-primary-500/10 rounded-full blur-3xl" />
+      <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-success-500/10 rounded-full blur-3xl" />
 
-      <div className="relative">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-700 ${
-              highlight ? 'bg-emerald-500/20' : 'bg-primary-500/15'
-            }`}>
-              <HiCurrencyRupee className={`w-5 h-5 transition-colors duration-700 ${highlight ? 'text-emerald-400' : 'text-primary-400'}`} />
+      <div className="relative z-10 flex flex-col h-full">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-primary-500/20 border border-primary-500/30 flex items-center justify-center text-primary-400">
+              <HiCurrencyRupee className="w-6 h-6" />
             </div>
-            <span className="font-semibold text-slate-300 text-sm">Wallet Balance</span>
+            <span className="font-bold text-base-300 uppercase tracking-wider text-sm">Wallet Balance</span>
           </div>
-          {highlight && recentAmount > 0 && (
-            <span className="flex items-center gap-1 bg-emerald-500/15 text-emerald-400 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse">
-              <HiArrowUp className="w-3 h-3" />
-              +₹{recentAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-            </span>
-          )}
+          
+          <AnimatePresence>
+            {highlight && recentAmount > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="flex items-center gap-1.5 bg-success-500 text-base-950 font-bold px-3 py-1 rounded-full shadow-lg shadow-success-500/30"
+              >
+                <HiExternalLink className="w-4 h-4" />
+                <span>+₹{recentAmount.toLocaleString('en-IN')}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* Balance */}
-        <div className="mb-5">
-          <p className={`text-4xl font-extrabold transition-colors duration-700 ${highlight ? 'text-emerald-400' : 'text-white'}`}>
+        <div className="mb-10">
+          <motion.p 
+            className={`text-5xl md:text-6xl font-extrabold font-sans tracking-tighter ${highlight ? 'text-success-400' : 'text-base-100'}`}
+          >
             ₹{animatedBalance.toLocaleString('en-IN')}
+          </motion.p>
+          <p className="text-sm font-medium text-base-500 mt-2 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-success-500 inline-block animate-pulse"></span>
+            Available for instant withdrawal
           </p>
-          <p className="text-xs text-slate-500 mt-1">Available for withdrawal</p>
         </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-slate-700/30 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <HiTrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-xs text-slate-400">Total Received</span>
-            </div>
-            <p className="font-bold text-white text-sm">
-              ₹{animatedPayouts.toLocaleString('en-IN')}
-            </p>
+        <div className="grid grid-cols-2 gap-4 mt-auto">
+          <div className="bg-base-950/50 rounded-2xl p-4 border border-base-800">
+            <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Total Protected</p>
+            <p className="text-lg font-bold text-base-100">₹{animatedPayouts.toLocaleString('en-IN')}</p>
           </div>
-          <div className="bg-slate-700/30 rounded-xl p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-xs text-slate-400">Payout Method</span>
-            </div>
-            <p className="font-bold text-white text-sm flex items-center gap-1">
-              <span className="w-4 h-4 bg-orange-500 rounded-sm text-white text-[9px] font-black flex items-center justify-center">U</span>
-              UPI / Wallet
-            </p>
+          <div className="bg-base-950/50 rounded-2xl p-4 border border-base-800">
+            <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Payout Method</p>
+            <p className="text-lg font-bold text-base-100">Direct UPI</p>
           </div>
         </div>
-
-        {/* Bottom note */}
-        <p className="text-xs text-slate-500 mt-3 text-center">
-          Payouts credited automatically within 60 seconds
-        </p>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
+import { AnimatePresence } from 'framer-motion';
 export default WalletCard;

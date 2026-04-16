@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { getWeather } from '../services/api';
+import { HiOutlineSun, HiOutlineCloud, HiOutlineLightningBolt, HiOutlineLocationMarker } from 'react-icons/hi';
 
 const ZONES = ['kukatpally', 'banjara_hills', 'old_city', 'gachibowli', 'lb_nagar', 'madhapur'];
 
-const getConditionEmoji = (condition) => {
-  if (!condition) return '🌤️';
+const getConditionIcon = (condition) => {
+  if (!condition) return HiOutlineSun;
   const c = condition.toLowerCase();
-  if (c.includes('rain') || c.includes('storm')) return '🌧️';
-  if (c.includes('extreme_heat') || c.includes('very_hot')) return '🔥';
-  if (c.includes('flood')) return '🌊';
-  if (c.includes('hot') || c.includes('heat')) return '☀️';
-  if (c.includes('cloud')) return '⛅';
-  if (c.includes('clear') || c.includes('pleasant')) return '🌤️';
-  return '🌤️';
+  if (c.includes('rain') || c.includes('storm')) return HiOutlineLightningBolt;
+  if (c.includes('extreme_heat') || c.includes('very_hot')) return HiOutlineSun;
+  if (c.includes('flood')) return HiOutlineCloud;
+  if (c.includes('hot') || c.includes('heat')) return HiOutlineSun;
+  if (c.includes('cloud')) return HiOutlineCloud;
+  if (c.includes('clear') || c.includes('pleasant')) return HiOutlineSun;
+  return HiOutlineSun;
 };
 
 const LiveWeatherBar = () => {
@@ -48,30 +50,47 @@ const LiveWeatherBar = () => {
   const zones = Object.keys(weatherData);
   if (zones.length === 0) return null;
 
+  // We'll show a scrolling marquee effect
   return (
-    <div className="bg-slate-800/80 border-b border-slate-700/50 px-4 py-1.5 overflow-hidden">
-      <div className="flex items-center gap-4 text-xs">
-        <span className="flex items-center gap-1 text-emerald-400 font-semibold flex-shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          LIVE
-        </span>
-        <div className="flex gap-4 overflow-hidden">
-          {ZONES.map((zone) => {
+    <div className="bg-base-950 border-b border-base-800 px-4 py-2.5 overflow-hidden flex items-center shadow-inner">
+      <div className="flex items-center gap-2 pr-4 border-r border-base-800 shrink-0">
+        <div className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-success-500"></span>
+        </div>
+        <span className="text-xs font-bold uppercase tracking-widest text-success-400">Live</span>
+      </div>
+      
+      <div className="flex-1 overflow-hidden relative ml-4">
+        <div className="flex animate-[marquee_30s_linear_infinite] whitespace-nowrap hover:[animation-play-state:paused]">
+          {[...ZONES, ...ZONES].map((zone, idx) => {
             const w = weatherData[zone];
             if (!w) return null;
+            const Icon = getConditionIcon(w.weather_condition);
             return (
-              <div key={zone} className="flex items-center gap-1.5 text-slate-300 flex-shrink-0 transition-all">
-                <span>{getConditionEmoji(w.weather_condition)}</span>
-                <span className="text-slate-400">{zone.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span>
-                <span className="font-medium">{w.temperature?.toFixed(0)}°C</span>
+              <div key={`${zone}-${idx}`} className="flex items-center gap-3 px-6 shrink-0 border-r border-base-800/50 last:border-0">
+                <Icon className="w-4 h-4 text-base-400" />
+                <span className="text-xs font-bold uppercase tracking-wider text-base-300">
+                  {zone.replace(/_/g, ' ')}
+                </span>
+                <span className="text-sm font-bold text-base-100">{w.temperature?.toFixed(0)}°</span>
                 {w.rainfall_mm_hr > 0 && (
-                  <span className="text-blue-400">{w.rainfall_mm_hr?.toFixed(1)}mm/hr</span>
+                  <span className="text-xs font-bold text-info-400 bg-info-500/10 px-2 py-0.5 rounded-full">
+                    {w.rainfall_mm_hr?.toFixed(1)}mm/hr
+                  </span>
                 )}
               </div>
             );
           })}
         </div>
       </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}} />
     </div>
   );
 };

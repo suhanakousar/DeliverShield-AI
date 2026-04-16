@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { WiRain, WiDaySunny, WiCloudy, WiThunderstorm, WiFlood, WiHot } from 'react-icons/wi';
 import RiskBadge from './RiskBadge';
 
@@ -24,11 +25,11 @@ const getWeatherIcon = (condition) => {
 const WeatherCard = ({ weather, zone, className = '' }) => {
   if (!weather) {
     return (
-      <div className={`card ${className}`}>
-        <div className="animate-pulse space-y-3">
-          <div className="h-4 bg-slate-700 rounded w-1/3" />
-          <div className="h-8 bg-slate-700 rounded w-1/2" />
-          <div className="h-3 bg-slate-700 rounded w-2/3" />
+      <div className={`card ${className} h-full`}>
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-base-800 rounded-lg w-1/3" />
+          <div className="h-16 bg-base-800 rounded-xl w-1/2" />
+          <div className="h-20 bg-base-800 rounded-xl w-full" />
         </div>
       </div>
     );
@@ -43,42 +44,49 @@ const WeatherCard = ({ weather, zone, className = '' }) => {
   const updatedAt = weather.timestamp || weather.updated_at;
 
   return (
-    <div className={`card ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <p className="text-sm text-slate-400 font-medium">Weather</p>
-          {zone && <p className="text-xs text-slate-500">{zone}</p>}
+    <motion.div 
+      variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}
+      className={`card flex flex-col justify-between ${className}`}
+    >
+      <div>
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-base-500 mb-1">Current Weather</p>
+            {zone && <p className="text-base-200 font-semibold">{zone.replace(/_/g, ' ')}</p>}
+          </div>
+          <RiskBadge level={riskLevel} />
         </div>
-        <RiskBadge level={riskLevel} />
-      </div>
 
-      <div className="flex items-center gap-4 mb-4">
-        <div className="w-16 h-16 bg-slate-700/50 rounded-xl flex items-center justify-center">
-          <WeatherIcon className="w-10 h-10 text-blue-400" />
-        </div>
-        <div>
-          <p className="text-3xl font-bold text-white">{temp}°C</p>
-          <p className="text-sm text-slate-400 capitalize">{condition.replace(/_/g, ' ')}</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-slate-700/30 rounded-lg p-2.5">
-          <p className="text-xs text-slate-500">Humidity</p>
-          <p className="text-sm font-semibold text-slate-200">{humidity}%</p>
-        </div>
-        <div className="bg-slate-700/30 rounded-lg p-2.5">
-          <p className="text-xs text-slate-500">Rainfall</p>
-          <p className="text-sm font-semibold text-slate-200">{rainfall} mm/hr</p>
+        <div className="flex items-center gap-6 mb-8">
+          <div className="w-20 h-20 bg-info-500/10 border border-info-500/20 rounded-2xl flex items-center justify-center text-info-400">
+            <WeatherIcon className="w-14 h-14" />
+          </div>
+          <div>
+            <p className="text-5xl font-extrabold font-sans tracking-tighter text-base-100">{temp}°</p>
+            <p className="text-base-400 font-medium capitalize mt-1">{condition.replace(/_/g, ' ')}</p>
+          </div>
         </div>
       </div>
 
-      {updatedAt && (
-        <p className="text-xs text-slate-600 mt-3">
-          Updated: {new Date(updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-        </p>
-      )}
-    </div>
+      <div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-base-950/50 rounded-xl p-4 border border-base-800">
+            <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Humidity</p>
+            <p className="text-lg font-bold text-base-200">{humidity}%</p>
+          </div>
+          <div className="bg-base-950/50 rounded-xl p-4 border border-base-800">
+            <p className="text-xs font-bold text-base-500 uppercase tracking-wider mb-1">Rainfall</p>
+            <p className="text-lg font-bold text-base-200">{rainfall} <span className="text-sm font-medium text-base-500">mm/hr</span></p>
+          </div>
+        </div>
+
+        {updatedAt && (
+          <p className="text-xs font-medium text-base-600 mt-4 text-center">
+            Updated today at {new Date(updatedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
