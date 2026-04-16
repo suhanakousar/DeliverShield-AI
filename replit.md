@@ -48,9 +48,15 @@ AI-Powered Parametric Income Insurance platform for food delivery partners (Swig
 - `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET`: Payment keys (defaults to mock values)
 
 ## Frontend-Backend Communication
-- Frontend uses `REACT_APP_API_URL` env var (defaults to `http://localhost:8000`)
+- Frontend proxies API requests to backend via `"proxy": "http://localhost:8000"` in `frontend/package.json`
+- `api.js` uses empty base URL so all `/api/...` calls go through the CRA proxy to the backend
 - Backend CORS allows all origins in development
 - SSE (Server-Sent Events) used for real-time notifications
+
+## Replit Setup Notes
+- Python packages installed via `pip install -r backend/requirements.txt`
+- Node packages installed via `npm install --legacy-peer-deps` in `frontend/` (react-leaflet v5 requires --legacy-peer-deps)
+- PostgreSQL database provisioned via Replit; `DATABASE_URL` secret auto-set
 
 ## Database
 - Auto-seeds 8 sample delivery workers in Hyderabad on first run
