@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { HiCurrencyRupee, HiExternalLink } from 'react-icons/hi';
 
 const useCountUp = (target, duration = 1500) => {
@@ -98,5 +98,4 @@ const WalletCard = ({ balance = 0, totalPayouts = 0, recentAmount = null }) => {
   );
 };
 
-import { AnimatePresence } from 'framer-motion';
 export default WalletCard;

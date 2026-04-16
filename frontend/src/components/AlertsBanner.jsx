@@ -1,11 +1,12 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HiOutlineExclamation, HiOutlineCloudRain, HiOutlineFire, HiOutlineSparkles } from 'react-icons/hi';
+import { HiOutlineExclamation, HiOutlineFire, HiOutlineSparkles } from 'react-icons/hi';
+import { HiCloud } from 'react-icons/hi2';
 
 const ICONS = {
-  heavy_rain: HiOutlineCloudRain,
+  heavy_rain: HiCloud,
   extreme_heat: HiOutlineFire,
-  flood: HiOutlineCloudRain,
+  flood: HiCloud,
   severe_pollution: HiOutlineSparkles,
 };
 
